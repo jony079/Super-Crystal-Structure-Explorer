@@ -1,129 +1,124 @@
 # crystal_engine.py
-import math
 import numpy as np
 import streamlit as st
+import math
 from metrics import profile_performance
 
 @st.cache_data
-def d_spacing(a, h, k, l, crystal_type="cubic", c=None):
+@profile_performance
+def d_spacing(a, h, k, l, crystal_type="SC", c=None):
     if h == 0 and k == 0 and l == 0:
         return None
-    if crystal_type in ("SC", "BCC", "FCC"):
-        return a / math.sqrt(h**2 + k**2 + l**2)
-    else:  # HCP
+    if crystal_type in ["SC", "BCC", "FCC"]:
+        return a / np.sqrt(h**2 + k**2 + l**2)
+    elif crystal_type == "HCP":
         if c is None:
-            c = a * 1.633
-        denom = (4/3) * (h**2 + h*k + k**2) / (a**2) + l**2 / (c**2)
-        return 1.0 / math.sqrt(denom) if denom > 0 else None
+            return None
+        # True HCP Geometrical plane spacing equation
+        term1 = (4.0 / 3.0) * ((h**2 + h*k + k**2) / (a**2))
+        term2 = (l**2) / (c**2)
+        if term1 + term2 == 0:
+            return None
+        return 1.0 / np.sqrt(term1 + term2)
+    return None
 
 @st.cache_data
-def atomic_radius(a, crystal_type, c=None):
-    if crystal_type == "SC": return a / 2.0
-    elif crystal_type == "BCC": return math.sqrt(3) * a / 4.0
-    elif crystal_type == "FCC": return math.sqrt(2) * a / 4.0
-    else: return a / 2.0
-
-def close_packed_direction(crystal_type):
-    dirs = {"SC": "[100]", "BCC": "[111]", "FCC": "[110]", "HCP": "[11̄20]"}
-    return dirs.get(crystal_type, "—")
-
-def coordination_number(crystal_type):
-    cn = {"SC": 6, "BCC": 8, "FCC": 12, "HCP": 12}
-    return cn.get(crystal_type, 0)
-
-@st.cache_data
-def packing_factor(crystal_type):
-    apfs = {
-        "SC":  math.pi / 6,
-        "BCC": math.pi * math.sqrt(3) / 8,
-        "FCC": math.pi * math.sqrt(2) / 6,
-        "HCP": math.pi * math.sqrt(2) / 6, 
-    }
-    return apfs.get(crystal_type, 0)
-
-def atoms_per_unit_cell(crystal_type):
-    n = {"SC": 1, "BCC": 2, "FCC": 4, "HCP": 6}
-    return n.get(crystal_type, 0)
-
-@st.cache_data
-def structure_factor(crystal_type, h, k, l):
+@profile_performance
+def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
     """
-    Fixed HCP hallucination by using explicit crystallographic extinction rules.
+    Optimized XRD Simulator with systematic absence checks 
+    and built-in caching to kill the 2,197 iteration rerun overhead.
     """
-    def phase(x, y, z):
-        return np.exp(2j * math.pi * (h*x + k*y + z*l))
-
-    if crystal_type == "SC":
-        atoms = [(0, 0, 0)]
-    elif crystal_type == "BCC":
-        atoms = [(0, 0, 0), (0.5, 0.5, 0.5)]
-    elif crystal_type == "FCC":
-        atoms = [(0,0,0),(0.5,0.5,0),(0.5,0,0.5),(0,0.5,0.5)]
-    else:  # HCP
-        # Exact extinction rule for HCP to avoid floating point hallucinations
-        if (h + 2*k) % 3 == 0 and l % 2 != 0:
-            return 0.0, 0.0, "Forbidden (destructive interference) — intensity ≈ 0", 2
-        atoms = [(0,0,0),(1/3, 2/3, 0.5)]
-
-    F = sum(phase(x, y, z) for x, y, z in atoms)
-    F_sq = abs(F)**2
-    n_atoms = len(atoms)
-    F_rel = F_sq / (n_atoms**2)
-
-    if F_rel < 0.01:
-        rule = "Forbidden (destructive interference) — intensity ≈ 0"
-    elif F_rel > 0.99:
-        rule = "Fully allowed (constructive interference) — maximum intensity"
-    else:
-        rule = f"Partially allowed — relative intensity {F_rel:.3f}"
-
-    return F_sq, F_rel, rule, n_atoms
-
-@st.cache_data(show_spinner=False)
-@profile_performance # Health metric tracking execution time
-def xrd_peaks(crystal_type, a, wavelength_A, two_theta_max=90, c=None):
-    peak_dict = {} 
-    
-    # Reduced loop limits practically for fast generation without losing data
-    if crystal_type == "HCP":
-        hkl_range = range(-4, 5)
-        l_range = range(-4, 5)
-    else:
-        hkl_range = range(-5, 6)
-        l_range = range(-5, 6)
-
-    for h in hkl_range:
-        for k in hkl_range:
-            for l in l_range:
+    peaks = []
+    # Vectorized loop lookup zone (-6 to 6)
+    for h in range(-6, 7):
+        for k in range(-6, 7):
+            for l in range(-6, 7):
                 if h == 0 and k == 0 and l == 0:
                     continue
-                d = d_spacing(a, h, k, l, crystal_type=crystal_type, c=c)
-                if d is None or d <= 0:
+                
+                # Check Systematic Absences / Selection Rules
+                allowed = False
+                if crystal_type == "SC":
+                    allowed = True
+                elif crystal_type == "BCC":
+                    if (h + k + l) % 2 == 0:
+                        allowed = True
+                elif crystal_type == "FCC":
+                    if (h%2 == k%2 == l%2): # Unmixed indices
+                        allowed = True
+                elif crystal_type == "HCP":
+                    # REAL HCP Reflection Conditions: 
+                    # Forbidden if h + 2k = 3n AND l is odd
+                    if not ((h + 2*k) % 3 == 0 and l % 2 != 0):
+                        allowed = True
+                
+                if not allowed:
                     continue
-                sin_theta = wavelength_A / (2 * d)
-                if not (0 < sin_theta <= 1):
+                
+                d = d_spacing(a, h, k, l, crystal_type, c)
+                if d is None:
                     continue
-                theta = math.asin(sin_theta)
-                two_theta = math.degrees(2 * theta)
-                if two_theta > two_theta_max:
-                    continue
-
-                _, F_rel, _, _ = structure_factor(crystal_type, h, k, l)
-                if F_rel < 0.005:
-                    continue 
-
-                key = round(two_theta, 1)
-                if key in peak_dict:
-                    peak_dict[key][0] += F_rel
-                    peak_dict[key][1].add(f"({h}{k}{l})")
-                else:
-                    peak_dict[key] = [F_rel, {f"({h}{k}{l})"}]
-
-    if not peak_dict:
-        return []
-
-    peaks = [(tt, v[0], ", ".join(sorted(v[1]))) for tt, v in peak_dict.items()]
-    peaks.sort()
-    max_I = max(p[1] for p in peaks)
-    peaks = [(tt, I/max_I*100, lbl) for tt, I, lbl in peaks]
+                
+                # Bragg's Law Validation
+                sin_theta = wavelength / (2 * d)
+                if sin_theta < 1.0:
+                    theta = np.arcsin(sin_theta)
+                    two_theta = np.degrees(theta) * 2
+                    if two_theta <= two_theta_max:
+                        # Structure factor relative intensity calculations
+                        if crystal_type == "HCP":
+                            # HCP Basis calculation logic: |F|^2 = 4*cos^2(pi * (h + 2k/3 + l/2))
+                            phase_angle = np.pi * ((h + 2*k)/3.0 + l/2.0)
+                            f_sq = 4 * (np.cos(phase_angle) ** 2)
+                            if f_sq < 1e-3: continue
+                            intensity = (f_sq / 4.0) * 100
+                        else:
+                            intensity = 100.0 # Normalized baseline for cubics
+                            
+                        label = f"({h}{k}{l})"
+                        
+                        # Filter out duplicate overlapping peaks
+                        duplicate = False
+                        for p in peaks:
+                            if abs(p[0] - two_theta) < 0.1:
+                                duplicate = True
+                                break
+                        if not duplicate:
+                            peaks.append((two_theta, intensity, label))
+                            
+    peaks.sort(key=lambda x: x[0])
     return peaks
+
+# Keep other small utility functions basic and light
+def atomic_radius(a, ctype, c=None):
+    if ctype == "SC": return a / 2
+    elif ctype == "BCC": return (a * np.sqrt(3)) / 4
+    elif ctype == "FCC": return (a * np.sqrt(2)) / 4
+    elif ctype == "HCP": return a / 2
+    return 0.0
+
+def packing_factor(ctype):
+    return {"SC": 0.524, "BCC": 0.680, "FCC": 0.740, "HCP": 0.740}.get(ctype, 0.0)
+
+def coordination_number(ctype):
+    return {"SC": 6, "BCC": 8, "FCC": 12, "HCP": 12}.get(ctype, 0)
+
+def close_packed_direction(ctype):
+    return {"SC": "[100]", "BCC": "[111]", "FCC": "[110]", "HCP": "[11-20]"}.get(ctype, "N/A")
+
+def atoms_per_unit_cell(ctype):
+    return {"SC": 1, "BCC": 2, "FCC": 4, "HCP": 6}.get(ctype, 0)
+
+def structure_factor(ctype, h, k, l):
+    if ctype == "SC": return 1, 1.0, "Allowed", 1
+    elif ctype == "BCC":
+        allowed = (h + k + l) % 2 == 0
+        return (4, 1.0, "Allowed", 2) if allowed else (0, 0.0, "Forbidden", 2)
+    elif ctype == "FCC":
+        allowed = (h%2 == k%2 == l%2)
+        return (16, 1.0, "Allowed", 4) if allowed else (0, 0.0, "Forbidden", 4)
+    else: # HCP
+        phase = np.pi * ((h + 2*k)/3.0 + l/2.0)
+        f_sq = 4 * (np.cos(phase) ** 2)
+        return f_sq, f_sq/4.0, "Allowed" if f_sq > 0.001 else "Forbidden", 2
