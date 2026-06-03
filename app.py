@@ -358,3 +358,11 @@ with tab5:
         {"Type": "HCP", "CN": "12", "N/cell": "6", "APF": "0.740", "CP Dir": "[11-20]"}
     ])
     st.table(summary_df)
+    # --- SYSTEM OBSERVABILITY LOGS ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚙️ SYSTEM OBSERVABILITY")
+if 'telemetry_logs' in st.session_state:
+    for func, data in st.session_state.telemetry_logs.items():
+        st.sidebar.caption(f"**{func}**: `{data['execution_time_ms']:.2f} ms` ⚡")
+else:
+    st.sidebar.caption("No internal performance logs recorded yet.")
