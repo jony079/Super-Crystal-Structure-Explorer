@@ -29,6 +29,5 @@ An interactive, premium 3D web application designed for materials science and en
 Follow these steps to clone and run this project locally on your machine:
 
 ### 1. Clone the Repository
-```bash
-git clone [https://github.com/YOUR_USERNAME/Cubic-Crystal-Visualizer-MSE.git](https://github.com/YOUR_USERNAME/Cubic-Crystal-Visualizer-MSE.git)
-cd Cubic-Crystal-Visualizer-MSE
+git clone https://github.com/jony079/Super-Crystal-Structure-Explorer.git
+cd Super-Crystal-Structure-Explorer
