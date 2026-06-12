@@ -51,7 +51,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# STEP 1: SIDEBAR USER INTERFACE (LATTICE RESOLUTION)
+# STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 st.sidebar.markdown("## CRYSTAL TYPE")
 ctype = st.sidebar.radio("", ["SC", "BCC", "FCC", "HCP"], index=2, label_visibility="collapsed")
@@ -71,8 +71,21 @@ with col_h: h = st.number_input("h", value=1, step=1, key="input_h")
 with col_k: k = st.number_input("k", value=1, step=1, key="input_k")
 with col_l: l = st.number_input("l", value=0, step=1, key="input_l")
 
-# Run calculation pipelines — strictly forwarding resolved contracts
+st.sidebar.markdown("### VISUALIZATION OPTIONS")
+plane_shift = st.sidebar.slider("Plane shift C (hx+ky+lz = C)", min_value=-2.0, max_value=2.0, value=1.00, step=0.1)
+atom_size = st.sidebar.slider("Atom display size", min_value=0.05, max_value=0.5, value=0.18, step=0.01)
+
+st.sidebar.markdown("### XRD SETTINGS")
+wavelength_A = st.sidebar.number_input("X-ray wavelength λ (Å)", value=1.5406, min_value=0.1, step=0.0001, format="%.4f")
+
+# CRITICAL FIX: Run calculation pipelines after UI inputs are resolved to prevent NameError
 d = d_spacing(a_val, h, k, l, crystal_type=ctype, c=c_val)
+r = atomic_radius(a_val, ctype, c=c_val)
+apf = packing_factor(ctype)
+cn = coordination_number(ctype)
+cpd = close_packed_direction(ctype)
+n_atoms = atoms_per_unit_cell(ctype)
+F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)
 
 # ==========================================
 # STEP 2: MAIN DASHBOARD HEADER & KPI CARDS
@@ -195,6 +208,7 @@ with tab2:
     st.markdown("---")
     st.write(f"**Unit Cell Volume ($V_{{cell}}$):** `{pow(a_val, 3):.4f}` Å³" if ctype != "HCP" else f"**Unit Cell Volume ($V_{{cell}}$):** `{(1.5 * math.sqrt(3) * pow(a_val, 2) * c_val):.4f}` Å³")
     st.write(f"**Total Volume Filled by Atoms:** `{(n_atoms * (4/3) * math.pi * pow(r, 3)):.4f}` Å³")
+
 # --- TAB 3: XRD SIMULATOR ---
 with tab3:
     st.markdown("### XRD Diffraction Pattern Simulator")
@@ -208,7 +222,7 @@ with tab3:
     with xrd_ctrl3: 
         peak_width = st.slider("Peak width (°)", min_value=0.10, max_value=2.00, value=0.40, step=0.05)
 
- # Fetching structured peak list data dictionaries from the single source of truth core
+    # Fetching structured peak list data dictionaries from the single source of truth core
     peaks_list = xrd_peaks(ctype, a_val, wavelength_A, two_theta_max=max_2theta, c=c_val)
     
     if peaks_list:
@@ -217,18 +231,13 @@ with tab3:
         
         # Exact Analytical FWHM to Gaussian Standard Deviation Conversion
         # FWHM = 2 * sqrt(2 * ln(2)) * sigma -> sigma = FWHM / 2.354820045...
-        fwhm_to_sigma_const = 2.0 * math.sqrt(2.0 * math.log(2.0))
-        sigma = peak_width / fwhm_to_sigma_const
+        _FWHM_TO_SIGMA = 2.0 * math.sqrt(2.0 * math.log(2.0))
+        sigma = peak_width / _FWHM_TO_SIGMA
         
-        # Plotly continuous profiling generation using clean dynamic dictionary indices
+        # FIXED: Removed the redundant copy paste loop block to keep the logic clean
         for peak in peaks_list:
-            tt_peak = peak["two_theta"]
-            intensity = peak["intensity"]
-            # Applying the rigorous analytical sigma to build the exact Gaussian profile shape
-            continuous_intensity += intensity * np.exp(-0.5 * ((two_theta_axis - tt_peak) / sigma) ** 2)
-        for peak in peaks_list:
-            tt_peak = peak["two_theta"]
-            intensity = peak["intensity"]
+            tt_peak = peak["two_theta"] if isinstance(peak, dict) else peak[0]
+            intensity = peak["intensity"] if isinstance(peak, dict) else peak[1]
             continuous_intensity += intensity * np.exp(-0.5 * ((two_theta_axis - tt_peak) / sigma) ** 2)
             
         if max(continuous_intensity) > 0:
@@ -242,9 +251,13 @@ with tab3:
         ))
         
         for peak in peaks_list:
-            tt_peak = peak["two_theta"]
-            intensity = peak["intensity"]
-            label = peak["label"]
+            if isinstance(peak, dict):
+                tt_peak = peak["two_theta"]
+                intensity = peak["intensity"]
+                label = peak["label"]
+            else:  # Fallback just in case raw tuples are processed
+                tt_peak, intensity, hp, kp, lp = peak
+                label = f"({hp} {kp} {lp})"
             
             xrd_fig.add_trace(go.Scatter(
                 x=[tt_peak, tt_peak], y=[0, intensity], 
@@ -269,31 +282,34 @@ with tab3:
         )
         st.plotly_chart(xrd_fig, use_container_width=True)
         
-        # 📋 THE HONEST & ROBUST DATA TABLE PIPELINE
+        # THE HONEST & ROBUST DATA TABLE PIPELINE
         st.markdown("#### 📋 PEAK LIST")
         table_data = []
         
         for peak in peaks_list:
-            # Re-verifying interplanar spacing dynamically from backend engine 
-            # using safely structured integer keys passed through the contract
-            d_space = d_spacing(
-                a_val, peak["h"], peak["k"], peak["l"], 
-                crystal_type=ctype, c=c_val
-            )
-            
-            # Honest fallback formatting to prevent silent numerical distortions
+            if isinstance(peak, dict):
+                h_p, k_p, l_p = peak["h"], peak["k"], peak["l"]
+                tt_val = peak["two_theta"]
+                int_val = peak["intensity"]
+                lbl_val = peak["label"]
+            else:
+                tt_val, int_val, h_p, k_p, l_p = peak
+                lbl_val = f"({h_p} {k_p} {l_p})"
+
+            d_space = d_spacing(a_val, h_p, k_p, l_p, crystal_type=ctype, c=c_val)
             d_display = f"{d_space:.4f}" if d_space else "N/A"
             
             table_data.append({
-                "2θ (°)": f"{peak['two_theta']:.2f}", 
-                "I_rel (%)": f"{peak['intensity']:.1f}", 
+                "2θ (°)": f"{tt_val:.2f}", 
+                "I_rel (%)": f"{int_val:.1f}", 
                 "d (Å)": d_display, 
-                "hkl families": peak["label"]
+                "hkl families": lbl_val
             })
             
         st.dataframe(pd.DataFrame(table_data), use_container_width=True)
     else:
         st.error("No reflection vectors fit the current simulation bounds or systematic absence rules.")
+
 # --- TAB 4: STRUCTURE FACTOR STEP BREAKDOWN ---
 with tab4:
     st.markdown("### Structure Factor F(hkl)")
@@ -315,7 +331,6 @@ with tab4:
     with sf_col2:
         st.markdown(f"##### RESULT FOR ({h} {k} {l})")
         
-        # Pure display layer rendering — No independent phase calculations anymore!
         for idx, (bx, by, bz) in enumerate(basis):
             val = h*bx + k*by + l*bz
             st.latex(f"\\text{{Atom }}{idx+1}: e^{{i\\pi \\cdot {val*2:.4f}}}")
@@ -323,13 +338,13 @@ with tab4:
         st.latex(f"|F|^2 = {F_sq:.4f} \\cdot f^2")
         st.latex(f"\\text{{Relative intensity}} = {F_rel:.4f}")
         
-        # Render state UI based on engine evaluation
         if F_rule == "Forbidden":
             st.markdown(f'<div class="status-box-forbidden">❌ **FORBIDDEN reflection — systematic absence**<br>Forbidden (destructive interference) — intensity ≈ 0</div>', unsafe_allow_html=True)
         elif F_rule == "Allowed":
             st.markdown(f'<div class="status-box-allowed">✅ **ALLOWED reflection — transmission track path**<br>Constructive profile match found!</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="status-box-forbidden" style="background-color:#2a2515; border-color:#6b5a2d; color:#f0c665;">⚠️ **PARTIAL reflection**<br>Mixed profile diffraction state detected.</div>', unsafe_allow_html=True)
+
 # --- TAB 5: PACKING & COORDINATION VISUALIZATIONS ---
 with tab5:
     st.markdown("### Atomic Packing Factor & Coordination Number")
@@ -339,7 +354,6 @@ with tab5:
         st.markdown("##### APF DERIVATION & METRICS")
         st.latex(r"APF = \frac{N_{\text{atoms}} \cdot \frac{4}{3}\pi r^3}{V_{\text{cell}}}")
         
-        # Displaying current crystal APF fetched directly from runtime variable
         st.markdown(f"**Current Structural $APF_{{{ctype}}}$:** `{apf:.5f}` ({apf*100:.3f}%)")
         
         # 📊 SINGLE SOURCE OF TRUTH: Derive chart metrics directly from the engine
@@ -355,7 +369,6 @@ with tab5:
             marker_color=['#707a8a', '#f0883e', '#ff4b4b', '#ab63fa']
         ))
         
-        # Add a dynamic benchmark target line matching the currently active sidebar crystal type
         bar_fig.add_shape(
             type="line", x0=-0.5, x1=3.5, 
             y0=apf * 100.0, y1=apf * 100.0, 
@@ -383,7 +396,6 @@ with tab5:
             name="Central Atom"
         ))
         
-        # Resolve neighbor vectors
         neighbors = []
         if ctype == "SC": 
             neighbors = [(1,0,0), (-1,0,0), (0,1,0), (0,-1,0), (0,0,1), (0,0,-1)]
@@ -421,7 +433,6 @@ with tab5:
         )
         st.plotly_chart(net_fig, use_container_width=True)
 
-    # 📋 DYNAMIC SUMMARY TABLE: Re-verifying absolute analytical system state records
     st.markdown("##### ALL STRUCTURES SUMMARY")
     summary_df = pd.DataFrame([
         {
@@ -434,10 +445,10 @@ with tab5:
         for s in structures
     ])
     st.table(summary_df)
+
 # --- SYSTEM OBSERVABILITY LOGS ---
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⚙️ SYSTEM OBSERVABILITY")
-# FIXED: Refined log checks safely using clean conditional logic to prevent layout crashing.
 if 'telemetry_logs' in st.session_state and isinstance(st.session_state.telemetry_logs, dict):
     for func, data in st.session_state.telemetry_logs.items():
         if isinstance(data, dict) and 'execution_time_ms' in data:
