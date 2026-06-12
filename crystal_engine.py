@@ -1,34 +1,83 @@
-import math
+# crystal_engine.py
+
+```python
 import numpy as np
 import streamlit as st
 
 from metrics import profile_performance
 
+# ==================================================
+# Crystal Basis Definitions
+# ==================================================
 
-# --------------------------------------------------
-# Core Crystallography Functions
-# --------------------------------------------------
+BASIS_MAP = {
+    "SC": [
+        (0.0, 0.0, 0.0)
+    ],
+
+    "BCC": [
+        (0.0, 0.0, 0.0),
+        (0.5, 0.5, 0.5)
+    ],
+
+    "FCC": [
+        (0.0, 0.0, 0.0),
+        (0.5, 0.5, 0.0),
+        (0.5, 0.0, 0.5),
+        (0.0, 0.5, 0.5)
+    ],
+
+    "HCP": [
+        (0.0, 0.0, 0.0),
+        (1/3, 2/3, 0.5)
+    ]
+}
+
+
+# ==================================================
+# d-spacing
+# ==================================================
 
 @profile_performance
 @st.cache_data
-def d_spacing(a, h, k, l, crystal_type="SC", c=None):
+def d_spacing(
+    a,
+    h,
+    k,
+    l,
+    crystal_type="SC",
+    c=None
+):
     """
-    Calculate interplanar spacing (d-spacing).
+    Calculate interplanar spacing.
     """
 
-    if h == 0 and k == 0 and l == 0:
+    if (h, k, l) == (0, 0, 0):
+        return None
+
+    if a <= 0:
         return None
 
     if crystal_type in ("SC", "BCC", "FCC"):
-        return a / np.sqrt(h**2 + k**2 + l**2)
 
-    if crystal_type == "HCP":
-        if c is None:
+        denominator = h**2 + k**2 + l**2
+
+        if denominator <= 0:
             return None
 
-        term1 = (4.0 / 3.0) * (
-            (h**2 + h * k + k**2) / (a**2)
+        return a / np.sqrt(denominator)
+
+    if crystal_type == "HCP":
+
+        if c is None or c <= 0:
+            return None
+
+        term1 = (
+            4.0 / 3.0
+        ) * (
+            (h**2 + h*k + k**2) / (a**2)
         )
+
         term2 = (l**2) / (c**2)
 
         denominator = term1 + term2
@@ -41,6 +90,71 @@ def d_spacing(a, h, k, l, crystal_type="SC", c=None):
     return None
 
 
+# ==================================================
+# Structure Factor
+# ==================================================
+
+@profile_performance
+@st.cache_data
+def structure_factor(
+    ctype,
+    h,
+    k,
+    l
+):
+    """
+    Structure factor using phase summation.
+
+    Assumes atomic scattering factor:
+        f = 1
+
+    Returns:
+        F_sq,
+        F_rel,
+        status,
+        n_basis
+    """
+
+    basis = BASIS_MAP.get(ctype)
+
+    if basis is None:
+        return 0.0, 0.0, "Unknown", 0
+
+    F = sum(
+        np.exp(
+            2j * np.pi *
+            (h*x + k*y + l*z)
+        )
+        for x, y, z in basis
+    )
+
+    F_sq = float(abs(F) ** 2)
+
+    n_basis = len(basis)
+
+    F_rel = F_sq / (n_basis ** 2)
+
+    if F_rel < 1e-2:
+        status = "Forbidden"
+
+    elif F_rel > 0.99:
+        status = "Allowed"
+
+    else:
+        status = "Partial"
+
+    return (
+        F_sq,
+        F_rel,
+        status,
+        n_basis
+    )
+
+
+# ==================================================
+# XRD Peak Simulation
+# ==================================================
+
 @profile_performance
 @st.cache_data
 def xrd_peaks(
@@ -48,11 +162,19 @@ def xrd_peaks(
     a,
     wavelength,
     two_theta_max=120,
-    c=None,
+    c=None
 ):
     """
-    Simulate XRD peaks with selection rules and
-    duplicate peak suppression.
+    Simulate diffraction peaks.
+
+    Returns:
+        (
+            two_theta,
+            intensity,
+            h,
+            k,
+            l
+        )
     """
 
     peaks = []
@@ -61,31 +183,7 @@ def xrd_peaks(
         for k in range(-6, 7):
             for l in range(-6, 7):
 
-                if h == 0 and k == 0 and l == 0:
-                    continue
-
-                # --------------------------
-                # Selection Rules
-                # --------------------------
-
-                allowed = False
-
-                if crystal_type == "SC":
-                    allowed = True
-
-                elif crystal_type == "BCC":
-                    allowed = ((h + k + l) % 2 == 0)
-
-                elif crystal_type == "FCC":
-                    allowed = (h % 2 == k % 2 == l % 2)
-
-                elif crystal_type == "HCP":
-                    allowed = not (
-                        ((h + 2 * k) % 3 == 0)
-                        and (l % 2 != 0)
-                    )
-
-                if not allowed:
+                if (h, k, l) == (0, 0, 0):
                     continue
 
                 d = d_spacing(
@@ -94,7 +192,7 @@ def xrd_peaks(
                     k,
                     l,
                     crystal_type,
-                    c,
+                    c
                 )
 
                 if d is None:
@@ -102,149 +200,110 @@ def xrd_peaks(
 
                 sin_theta = wavelength / (2 * d)
 
-                if sin_theta >= 1.0:
+                if sin_theta >= 1:
                     continue
 
                 theta = np.arcsin(sin_theta)
-                two_theta = np.degrees(theta) * 2
+
+                two_theta = (
+                    np.degrees(theta) * 2
+                )
 
                 if two_theta > two_theta_max:
                     continue
 
-                # --------------------------
-                # Relative Intensity
-                # --------------------------
+                (
+                    F_sq,
+                    F_rel,
+                    status,
+                    _
+                ) = structure_factor(
+                    crystal_type,
+                    h,
+                    k,
+                    l
+                )
 
-                if crystal_type == "HCP":
+                if status == "Forbidden":
+                    continue
 
-                    phase_angle = np.pi * (
-                        ((h + 2 * k) / 3.0)
-                        + (l / 2.0)
-                    )
-
-                    f_sq = 4 * (np.cos(phase_angle) ** 2)
-
-                    if f_sq < 1e-3:
-                        continue
-
-                    intensity = (f_sq / 4.0) * 100
-
-                else:
-                    intensity = 100.0
-
-                # Cleaner Miller notation
-                label = f"({h} {k} {l})"
+                intensity = F_rel * 100
 
                 duplicate = any(
-                    abs(existing[0] - two_theta) < 0.1
+                    abs(existing[0] - two_theta)
+                    < 0.1
                     for existing in peaks
                 )
 
                 if not duplicate:
+
                     peaks.append(
                         (
-                            two_theta,
-                            intensity,
-                            label,
+                            float(two_theta),
+                            float(intensity),
+                            h,
+                            k,
+                            l
                         )
                     )
 
-    peaks.sort(key=lambda x: x[0])
+    peaks.sort(
+        key=lambda item: item[0]
+    )
 
     return peaks
 
 
-# --------------------------------------------------
+# ==================================================
 # Utility Functions
-# --------------------------------------------------
+# ==================================================
 
 def atomic_radius(a, ctype, c=None):
-    if ctype == "SC":
-        return a / 2
 
-    if ctype == "BCC":
-        return (a * np.sqrt(3)) / 4
-
-    if ctype == "FCC":
-        return (a * np.sqrt(2)) / 4
-
-    if ctype == "HCP":
-        return a / 2
-
-    return 0.0
+    return {
+        "SC": a / 2,
+        "BCC": (a * np.sqrt(3)) / 4,
+        "FCC": (a * np.sqrt(2)) / 4,
+        "HCP": a / 2,
+    }.get(ctype, 0.0)
 
 
 def packing_factor(ctype):
+
     return {
         "SC": 0.524,
         "BCC": 0.680,
         "FCC": 0.740,
-        "HCP": 0.740,
+        "HCP": 0.740
     }.get(ctype, 0.0)
 
 
 def coordination_number(ctype):
+
     return {
         "SC": 6,
         "BCC": 8,
         "FCC": 12,
-        "HCP": 12,
+        "HCP": 12
     }.get(ctype, 0)
 
 
 def close_packed_direction(ctype):
+
     return {
         "SC": "[100]",
         "BCC": "[111]",
         "FCC": "[110]",
-        "HCP": "[11-20]",
+        "HCP": "[11-20]"
     }.get(ctype, "N/A")
 
 
 def atoms_per_unit_cell(ctype):
+
     return {
         "SC": 1,
         "BCC": 2,
         "FCC": 4,
-        "HCP": 6,
+        "HCP": 6
     }.get(ctype, 0)
-
-
-def structure_factor(ctype, h, k, l):
-
-    if ctype == "SC":
-        return 1, 1.0, "Allowed", 1
-
-    if ctype == "BCC":
-        allowed = ((h + k + l) % 2 == 0)
-
-        return (
-            (4, 1.0, "Allowed", 2)
-            if allowed
-            else (0, 0.0, "Forbidden", 2)
-        )
-
-    if ctype == "FCC":
-        allowed = (h % 2 == k % 2 == l % 2)
-
-        return (
-            (16, 1.0, "Allowed", 4)
-            if allowed
-            else (0, 0.0, "Forbidden", 4)
-        )
-
-    # HCP
-
-    phase = np.pi * (
-        ((h + 2 * k) / 3.0)
-        + (l / 2.0)
-    )
-
-    f_sq = 4 * (np.cos(phase) ** 2)
-
-    return (
-        f_sq,
-        f_sq / 4.0,
-        "Allowed" if f_sq > 0.001 else "Forbidden",
-        2,
-    )
+```
