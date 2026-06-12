@@ -327,20 +327,36 @@ with tab5:
     
     pack_col1, pack_col2 = st.columns([1.2, 1])
     with pack_col1:
-        st.markdown("##### APF DERIVATION")
+        st.markdown("##### APF DERIVATION & METRICS")
         st.latex(r"APF = \frac{N_{atoms} \cdot \frac{4}{3}\pi r^3}{V_{cell}}")
-        if ctype == "FCC":
-            st.write(r"FCC: 4 atoms, $r = \sqrt{2}a/4$, $V_{cell} = a^3$")
-            st.latex(r"APF = \frac{4 \cdot \frac{4}{3}\pi \left(\frac{\sqrt{2}a}{4}\right)^3}{a^3} = \frac{\pi\sqrt{2}}{6} \approx 0.7405")
-        st.markdown(f"**$APF_{{{ctype}}} = {apf:.4f}$ ({apf*100:.2f}%)**")
+        
+        st.markdown(f"**Current Structural $APF_{{{ctype}}}$:** `{apf:.5f}` ({apf*100:.3f}%)")
+        
+        # 📊 DYNAMIC CHART GENERATION PATH: Fetching live data array directly from single truth engine
+        all_structures = ["SC", "BCC", "FCC", "HCP"]
+        live_apf_values = [packing_factor(s) * 100.0 for s in all_structures]
+        live_text_labels = [f"{v:.2f}%" for v in live_apf_values]
         
         bar_fig = go.Figure(go.Bar(
-            x=["SC", "BCC", "FCC", "HCP"], y=[52.4, 68.0, 74.0, 74.0],
-            text=["52.4%", "68.0%", "74.0%", "74.0%"], textposition='auto',
+            x=all_structures, 
+            y=live_apf_values,
+            text=live_text_labels, 
+            textposition='auto',
             marker_color=['#707a8a', '#f0883e', '#ff4b4b', '#ab63fa']
         ))
-        bar_fig.add_shape(type="line", x0=-0.5, x1=3.5, y0=apf*100, y1=apf*100, line=dict(color="red", width=2, dash="dash"))
-        bar_fig.update_layout(yaxis_title="APF (%)", paper_bgcolor='#0d1117', plot_bgcolor='#0d1117', margin=dict(t=10, b=10, l=10, r=10), height=250)
+        
+        # Live benchmark tracking bar target line match
+        bar_fig.add_shape(
+            type="line", x0=-0.5, x1=3.5, 
+            y0=apf * 100.0, y1=apf * 100.0, 
+            line=dict(color="red", width=2, dash="dash")
+        )
+        
+        bar_fig.update_layout(
+            yaxis_title="Dynamic APF (%)", 
+            paper_bgcolor='#0d1117', plot_bgcolor='#0d1117', 
+            margin=dict(t=10, b=10, l=10, r=10), height=250
+        )
         st.plotly_chart(bar_fig, use_container_width=True)
 
     with pack_col2:
@@ -374,11 +390,10 @@ with tab5:
         st.plotly_chart(net_fig, use_container_width=True)
 
     st.markdown("##### ALL STRUCTURES SUMMARY")
+    # Generating summary dataframe records dynamically from core matrix
     summary_df = pd.DataFrame([
-        {"Type": "SC", "CN": "6", "N/cell": "1", "APF": "0.524", "CP Dir": "[100]"},
-        {"Type": "BCC", "CN": "8", "N/cell": "2", "APF": "0.680", "CP Dir": "[111]"},
-        {"Type": "FCC", "CN": "12", "N/cell": "4", "APF": "0.740", "CP Dir": "[110]"},
-        {"Type": "HCP", "CN": "12", "N/cell": "6", "APF": "0.740", "CP Dir": "[11-20]"}
+        {"Type": s, "CN": str(coordination_number(s)), "N/cell": str(atoms_per_unit_cell(s)), "APF": f"{packing_factor(s):.5f}", "CP Dir": close_packed_direction(s)}
+        for s in all_structures
     ])
     st.table(summary_df)
 
