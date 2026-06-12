@@ -268,7 +268,6 @@ with tab4:
         st.latex(r"F_{hkl} = f \sum_{j} e^{2\pi i (hx_j + ky_j + lz_j)}")
         
         st.markdown("##### ATOM BASIS")
-        # FIXED: Removed manual duplication array here; reading from unified global mapping
         basis = BASIS_MAP.get(ctype, [(0.0, 0.0, 0.0)])
         
         for idx, (bx, by, bz) in enumerate(basis):
@@ -277,16 +276,21 @@ with tab4:
     with sf_col2:
         st.markdown(f"##### RESULT FOR ({h} {k} {l})")
         
-        # FIXED: Removed structure factor loop recalculation entirely, 
-        # leveraging directly returned cached values `F_sq` and `F_rel` computed at run-level.
+        # Pure display layer rendering — No independent phase calculations anymore!
+        for idx, (bx, by, bz) in enumerate(basis):
+            val = h*bx + k*by + l*bz
+            st.latex(f"\\text{{Atom }}{idx+1}: e^{{i\\pi \\cdot {val*2:.4f}}}")
+            
         st.latex(f"|F|^2 = {F_sq:.4f} \\cdot f^2")
         st.latex(f"\\text{{Relative intensity}} = {F_rel:.4f}")
         
-        if F_rel == 0:
+        # Render state UI based on engine evaluation
+        if F_rule == "Forbidden":
             st.markdown(f'<div class="status-box-forbidden">❌ **FORBIDDEN reflection — systematic absence**<br>Forbidden (destructive interference) — intensity ≈ 0</div>', unsafe_allow_html=True)
-        else:
+        elif F_rule == "Allowed":
             st.markdown(f'<div class="status-box-allowed">✅ **ALLOWED reflection — transmission track path**<br>Constructive profile match found!</div>', unsafe_allow_html=True)
-
+        else:
+            st.markdown(f'<div class="status-box-forbidden" style="background-color:#2a2515; border-color:#6b5a2d; color:#f0c665;">⚠️ **PARTIAL reflection**<br>Mixed profile diffraction state detected.</div>', unsafe_allow_html=True)
 # --- TAB 5: PACKING & COORDINATION VISUALIZATIONS ---
 with tab5:
     st.markdown("### Atomic Packing Factor & Coordination Number")
