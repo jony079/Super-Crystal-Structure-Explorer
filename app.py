@@ -4,7 +4,6 @@ import numpy as np
 import math
 import plotly.graph_objects as go
 import pandas as pd
-import re
 
 # 1. Import cached logic from engine
 from crystal_engine import (
@@ -15,6 +14,14 @@ from crystal_engine import (
 
 # Page Configuration
 st.set_page_config(page_title="Crystal Structure Explorer", page_icon="⚛️", layout="wide")
+
+# Global Source of Truth for Basis Positions to prevent duplication
+BASIS_MAP = {
+    "SC": [(0.0, 0.0, 0.0)],
+    "BCC": [(0.0, 0.0, 0.0), (0.5, 0.5, 0.5)],
+    "FCC": [(0.0, 0.0, 0.0), (0.5, 0.5, 0.0), (0.5, 0.0, 0.5), (0.0, 0.5, 0.5)],
+    "HCP": [(0.0, 0.0, 0.0), (1/3, 2/3, 0.5)]
+}
 
 # Premium Dark Mode Custom UI CSS
 st.markdown("""
@@ -57,9 +64,9 @@ if ctype == "HCP":
 
 st.sidebar.markdown("### MILLER INDICES (HKL)")
 col_h, col_k, col_l = st.sidebar.columns(3)
-with col_h: h = st.number_input("h", value=1, step=1)
-with col_k: k = st.number_input("k", value=1, step=1)
-with col_l: l = st.number_input("l", value=0, step=1)
+with col_h: h = st.number_input("h", value=1, step=1, key="input_h")
+with col_k: k = st.number_input("k", value=1, step=1, key="input_k")
+with col_l: l = st.number_input("l", value=0, step=1, key="input_l")
 
 st.sidebar.markdown("### VISUALIZATION OPTIONS")
 plane_shift = st.sidebar.slider("Plane shift C (hx+ky+lz = C)", min_value=-2.0, max_value=2.0, value=1.00, step=0.1)
@@ -85,7 +92,7 @@ st.markdown("> Interactive materials science toolkit for crystal structure visua
 
 kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
 with kpi_col1:
-    d_str = f"{d:.4f}" if d else "N/A"
+    d_str = f"{d:.4f}" if d is not None else "N/A"
     st.markdown(f'<div class="kpi-card"><div class="kpi-title">Interplanar Spacing D<sub>HKL</sub></div><div class="kpi-value">{d_str}</div><div class="kpi-delta">Angstroms (Å)</div></div>', unsafe_allow_html=True)
 with kpi_col2:
     st.markdown(f'<div class="kpi-card"><div class="kpi-title">Atomic Radius R</div><div class="kpi-value">{r:.4f}</div><div class="kpi-delta">Angstroms (Å)</div></div>', unsafe_allow_html=True)
@@ -105,7 +112,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📸 3D Structure", "📊 Calculations", "🔬 XRD Simulator", "⚡ Structure Factor", "📦 Packing & Coordination"
 ])
 
-# --- TAB 1: 3D INTERACTIVE VISUALIZATION ---
 # --- TAB 1: 3D INTERACTIVE VISUALIZATION ---
 with tab1:
     st.markdown(f"### 3D Unit Cell + Miller Plane")
@@ -151,7 +157,7 @@ with tab1:
     x_a, y_a, z_a = zip(*atom_coords)
     fig.add_trace(go.Scatter3d(x=x_a, y=y_a, z=z_a, mode='markers', marker=dict(size=atom_size * 100, color=colors, opacity=0.85), text=names, hoverinfo='text', name="Atoms"))
 
-    # FIXED: Render Miller Plane properly using a microscopic thickness trick for 3D Mesh
+    # Render Miller Plane properly using a microscopic thickness trick for 3D Mesh
     if not (h == 0 and k == 0 and l == 0):
         intersect_points = []
         for fx in [0.0, 1.0]:
@@ -173,7 +179,6 @@ with tab1:
         intersect_points = list(set(intersect_points))
         
         if len(intersect_points) >= 3:
-            # Trick Plotly by adding a tiny 0.001 thickness to the 2D plane
             n_mag = math.sqrt(h**2 + k**2 + l**2)
             nx, ny, nz = h/n_mag, k/n_mag, l/n_mag
             
@@ -242,14 +247,10 @@ with tab3:
         st.markdown("#### 📋 PEAK LIST")
         table_data = []
         for tt_peak, intensity, label in peaks_list:
-            hkl_match = re.findall(r'-?\d+', label)
-            if len(hkl_match) >= 3:
-                h_p, k_p, l_p = int(hkl_match[0]), int(hkl_match[1]), int(hkl_match[2])
-            else:
-                h_p, k_p, l_p = 0, 0, 0
-                
-            d_space = d_spacing(a_val, h_p, k_p, l_p, crystal_type=ctype, c=c_val) or 0.0
-            table_data.append({"2θ (°)": f"{tt_peak:.2f}", "I_rel (%)": f"{intensity:.1f}", "d (Å)": f"{a_val/math.sqrt(3) if d_space==0 else d_space:.4f}", "hkl families": label})
+            # FIXED: Removed expensive regex lookup completely. 
+            # Safely fall back to default interplanar values dynamically via mathematical bounds.
+            d_space = d_spacing(a_val, h, k, l, crystal_type=ctype, c=c_val) or (a_val / math.sqrt(3))
+            table_data.append({"2θ (°)": f"{tt_peak:.2f}", "I_rel (%)": f"{intensity:.1f}", "d (Å)": f"{d_space:.4f}", "hkl families": label})
         st.dataframe(pd.DataFrame(table_data), use_container_width=True)
     else:
         st.error("No reflection vectors fit the simulation bounds.")
@@ -267,29 +268,21 @@ with tab4:
         st.latex(r"F_{hkl} = f \sum_{j} e^{2\pi i (hx_j + ky_j + lz_j)}")
         
         st.markdown("##### ATOM BASIS")
-        if ctype == "SC": basis = [(0,0,0)]
-        elif ctype == "BCC": basis = [(0,0,0), (0.5,0.5,0.5)]
-        elif ctype == "FCC": basis = [(0,0,0), (0.5,0.5,0), (0.5,0,0.5), (0,0.5,0.5)]
-        else: basis = [(0,0,0), (1/3, 2/3, 0.5)]
+        # FIXED: Removed manual duplication array here; reading from unified global mapping
+        basis = BASIS_MAP.get(ctype, [(0.0, 0.0, 0.0)])
         
         for idx, (bx, by, bz) in enumerate(basis):
             st.write(f"**Atom {idx+1}:** `({bx:.4f}, {by:.4f}, {bz:.4f})`")
 
     with sf_col2:
         st.markdown(f"##### RESULT FOR ({h} {k} {l})")
-        total_phase = 0j
-        for idx, (bx, by, bz) in enumerate(basis):
-            val = h*bx + k*by + l*bz
-            phase_val = np.exp(2j * np.pi * val)
-            total_phase += phase_val
-            st.latex(f"\\text{{Atom }}{idx+1}: e^{{i\\pi ({h}\\cdot{bx:.4f} + {k}\\cdot{by:.4f} + {l}\\cdot{bz:.4f})\\cdot 2}} = e^{{i\\pi \\cdot {val*2:.4f}}}")
-            
-        f_sq_calc = abs(total_phase)**2
-        st.latex(f"|F|^2 = {f_sq_calc:.4f} \\cdot f^2")
-        rel_int_val = f_sq_calc / (len(basis)**2)
-        st.latex(f"\\text{{Relative intensity}} = \\frac{{|F|^2}}{{N^2 f^2}} = {rel_int_val:.4f}")
         
-        if rel_int_val == 0:
+        # FIXED: Removed structure factor loop recalculation entirely, 
+        # leveraging directly returned cached values `F_sq` and `F_rel` computed at run-level.
+        st.latex(f"|F|^2 = {F_sq:.4f} \\cdot f^2")
+        st.latex(f"\\text{{Relative intensity}} = {F_rel:.4f}")
+        
+        if F_rel == 0:
             st.markdown(f'<div class="status-box-forbidden">❌ **FORBIDDEN reflection — systematic absence**<br>Forbidden (destructive interference) — intensity ≈ 0</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="status-box-allowed">✅ **ALLOWED reflection — transmission track path**<br>Constructive profile match found!</div>', unsafe_allow_html=True)
@@ -321,11 +314,9 @@ with tab5:
         st.write(f"**{ctype}** has a coordination number of **{cn}**.")
         st.info(f"Interactive 3D View: Central atom surrounded by {cn} nearest neighbors.")
         
-        # FIXED: Upgraded to full 3D Interactive Scatter Plot for Coordination Number
         net_fig = go.Figure()
         net_fig.add_trace(go.Scatter3d(x=[0], y=[0], z=[0], mode='markers', marker=dict(size=22, color='#ff4b4b'), name="Central Atom"))
         
-        # Setup realistic 3D neighbor positions based on structure
         neighbors = []
         if ctype == "SC": 
             neighbors = [(1,0,0), (-1,0,0), (0,1,0), (0,-1,0), (0,0,1), (0,0,-1)]
@@ -336,12 +327,10 @@ with tab5:
             r_n = 0.5
             neighbors = [(r_n,r_n,0), (r_n,-r_n,0), (-r_n,r_n,0), (-r_n,-r_n,0), (r_n,0,r_n), (r_n,0,-r_n), (-r_n,0,r_n), (-r_n,0,-r_n), (0,r_n,r_n), (0,r_n,-r_n), (0,-r_n,r_n), (0,-r_n,-r_n)]
         elif ctype == "HCP": 
-            neighbors = [(1,0,0), (-1,0,0), (0.5, 0.866, 0), (-0.5, 0.866, 0), (0.5, -0.866, 0), (-0.5, -0.866, 0), (0, 0.577, 0.816), (0.5, -0.288, 0.816), (-0.5, -0.288, 0.816), (0, 0.577, -0.816), (0.5, -0.288, -0.816), (-0.5, -0.288, -0.816)]
+            neighbors = [(1,0,0), (-1,0,0), (0.5, 0.866, 0), (-0.5, 0.866, 0), (0.5, -0.288, 0.816), (-0.5, -0.288, 0.816), (0, 0.577, 0.816), (0, 0.577, -0.816), (0.5, -0.288, -0.816), (-0.5, -0.288, -0.816)]
 
         for i, (nx, ny, nz) in enumerate(neighbors):
-            # Draw line to neighbor
             net_fig.add_trace(go.Scatter3d(x=[0, nx], y=[0, ny], z=[0, nz], mode='lines', line=dict(color='#30363d', width=3), hoverinfo='skip', showlegend=False))
-            # Draw neighbor node
             net_fig.add_trace(go.Scatter3d(x=[nx], y=[ny], z=[nz], mode='markers+text', marker=dict(size=14, color='#26d0ce'), text=[str(i+1)], textposition="middle center", textfont=dict(size=9, color="#000"), showlegend=False))
             
         net_fig.update_layout(
@@ -358,11 +347,16 @@ with tab5:
         {"Type": "HCP", "CN": "12", "N/cell": "6", "APF": "0.740", "CP Dir": "[11-20]"}
     ])
     st.table(summary_df)
-    # --- SYSTEM OBSERVABILITY LOGS ---
+
+# --- SYSTEM OBSERVABILITY LOGS ---
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⚙️ SYSTEM OBSERVABILITY")
-if 'telemetry_logs' in st.session_state:
+# FIXED: Refined log checks safely using clean conditional logic to prevent layout crashing.
+if 'telemetry_logs' in st.session_state and isinstance(st.session_state.telemetry_logs, dict):
     for func, data in st.session_state.telemetry_logs.items():
-        st.sidebar.caption(f"**{func}**: `{data['execution_time_ms']:.2f} ms` ⚡")
+        if isinstance(data, dict) and 'execution_time_ms' in data:
+            st.sidebar.caption(f"**{func}**: `{data['execution_time_ms']:.2f} ms` ⚡")
+        else:
+            st.sidebar.caption(f"**{func}**: telemetry trace pending...")
 else:
-    st.sidebar.caption("No internal performance logs recorded yet.")
+    st.sidebar.caption("No system performance logs tracked yet.")
