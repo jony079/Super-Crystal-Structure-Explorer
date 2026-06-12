@@ -51,16 +51,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# STEP 1: SIDEBAR USER INTERFACE
+# STEP 1: SIDEBAR USER INTERFACE (LATTICE RESOLUTION)
 # ==========================================
 st.sidebar.markdown("## CRYSTAL TYPE")
 ctype = st.sidebar.radio("", ["SC", "BCC", "FCC", "HCP"], index=2, label_visibility="collapsed")
 
 st.sidebar.markdown("### LATTICE PARAMETERS")
 a_val = st.sidebar.number_input("Lattice parameter a (Å)", value=4.050, min_value=0.1, step=0.001, format="%.3f")
-c_val = None
+
+# Explicit fallback mapping at the UI instantiation layer
 if ctype == "HCP":
     c_val = st.sidebar.number_input("Lattice parameter c (Å)", value=6.600, min_value=0.1, step=0.001, format="%.3f")
+else:
+    c_val = None  # Explicit, never implicit guess vectors
 
 st.sidebar.markdown("### MILLER INDICES (HKL)")
 col_h, col_k, col_l = st.sidebar.columns(3)
@@ -68,21 +71,8 @@ with col_h: h = st.number_input("h", value=1, step=1, key="input_h")
 with col_k: k = st.number_input("k", value=1, step=1, key="input_k")
 with col_l: l = st.number_input("l", value=0, step=1, key="input_l")
 
-st.sidebar.markdown("### VISUALIZATION OPTIONS")
-plane_shift = st.sidebar.slider("Plane shift C (hx+ky+lz = C)", min_value=-2.0, max_value=2.0, value=1.00, step=0.1)
-atom_size = st.sidebar.slider("Atom display size", min_value=0.05, max_value=0.5, value=0.18, step=0.01)
-
-st.sidebar.markdown("### XRD SETTINGS")
-wavelength_A = st.sidebar.number_input("X-ray wavelength λ (Å)", value=1.5406, min_value=0.1, step=0.0001, format="%.4f")
-
-# Run calculations
+# Run calculation pipelines — strictly forwarding resolved contracts
 d = d_spacing(a_val, h, k, l, crystal_type=ctype, c=c_val)
-r = atomic_radius(a_val, ctype, c=c_val)
-apf = packing_factor(ctype)
-cn = coordination_number(ctype)
-cpd = close_packed_direction(ctype)
-n_atoms = atoms_per_unit_cell(ctype)
-F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)
 
 # ==========================================
 # STEP 2: MAIN DASHBOARD HEADER & KPI CARDS
