@@ -29,7 +29,9 @@ Follow these simple steps to set up and run the application locally on your mach
 
 ### 1. Clone the Repository
 Open your terminal or command prompt and run the following commands to clone the project repository and navigate into the directory:
-```bash
+git clone [https://github.com/jony079/Super-Crystal-Structure-Explorer.git](https://github.com/jony079/Super-Crystal-Structure-Explorer.git)
+cd Super-Crystal-Structure-Explorer
+
 git clone [https://github.com/jony079/Super-Crystal-Structure-Explorer.git](https://github.com/jony079/Super-Crystal-Structure-Explorer.git)
 cd Super-Crystal-Structure-
 2. Create and Activate a Virtual Enviroment
@@ -40,3 +42,4 @@ venv\Scripts\activate
 pip install -r requirements.txt
 4. Launch the Interactive Dashboard!
 streamlit run app.py
+🎉 That's it! Your default web browser will automatically open a new active tab hosting the dashboard at http://localhost:8501. If it doesn't open automatically, just copy and paste that exact link into your browser.
