@@ -4,7 +4,7 @@ import streamlit as st
 from metrics import profile_performance
 
 # ==================================================
-# Crystal Basis Definitions
+# Crystal Basis Definitions (Single Source of Truth)
 # ==================================================
 
 BASIS_MAP = {
@@ -30,13 +30,13 @@ BASIS_MAP = {
 # ==================================================
 # d-spacing
 # ==================================================
+
 @profile_performance
 @st.cache_data
 def d_spacing(a, h, k, l, crystal_type="SC", c=None):
     """
-    Calculate interplanar spacing dynamically with strict parameter validation.
+    Calculate interplanar spacing dynamically with strict boundary enforcement.
     """
-    # Defensive validations for baseline parameters
     if (h, k, l) == (0, 0, 0) or a <= 0:
         return None
 
@@ -47,14 +47,14 @@ def d_spacing(a, h, k, l, crystal_type="SC", c=None):
         return float(a / np.sqrt(denominator))
 
     if crystal_type == "HCP":
-        # CRITICAL CONTRACT: Fail-fast boundary enforcement
+        # CRITICAL CONTRACT: Fail-fast boundary instead of silent guess/wrong math
         if c is None:
             raise ValueError(
                 "d_spacing for HCP requires explicit c parameter. "
                 "c=None is not valid for hexagonal systems."
             )
         if c <= 0:
-            return None  # Return None for invalid input values, but handle types strictly above
+            return None
 
         # HCP d-spacing analytical formula
         term1 = (4.0 / 3.0) * ((h**2 + h*k + k**2) / (a**2))
@@ -103,12 +103,13 @@ def structure_factor(ctype, h, k, l):
 # ==================================================
 # XRD Peak Simulation
 # ==================================================
+
 @profile_performance
 @st.cache_data
 def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
     """
-    Simulate diffraction peaks and return raw structured data.
-    No UI-bound text hacking inside the mathematical core.
+    Simulate diffraction peaks and return structured data dictionaries.
+    No raw string hacks or missing parameter leakage.
     """
     peaks = []
 
@@ -118,11 +119,12 @@ def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
                 if (h, k, l) == (0, 0, 0):
                     continue
 
-                # Structural absences filter from engine
+                # Structural absences validation check
                 F_sq, F_rel, status, _ = structure_factor(crystal_type, h, k, l)
                 if status == "Forbidden":
                     continue
 
+                # Enforcing explicit parameter route
                 d = d_spacing(a, h, k, l, crystal_type, c)
                 if d is None:
                     continue
@@ -139,14 +141,14 @@ def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
 
                 intensity = float(F_rel * 100.0)
                 
-                # Standard physical label mapping
+                # Dynamic physical label processing
                 if crystal_type == "HCP":
                     i = -(h + k)
                     label = f"({h} {k} {i} {l})"
                 else:
                     label = f"({h} {k} {l})"
 
-                # Check for duplicate peak angles
+                # Peak overlapping validation (Resolution threshold check)
                 duplicate = False
                 for p in peaks:
                     if abs(p["two_theta"] - two_theta) < 0.1:
@@ -158,7 +160,7 @@ def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
                         break
 
                 if not duplicate and intensity > 0.1:
-                    # Explicit structured contract instead of ambiguous tuple
+                    # Strict structured data contract instead of untyped strings/tuples
                     peaks.append({
                         "two_theta": two_theta,
                         "intensity": intensity,
@@ -168,16 +170,17 @@ def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
                         "l": l
                     })
 
-    # Sort dictionary items chronologically by angle
+    # Sort peaks chronologically by angle theta
     peaks.sort(key=lambda x: x["two_theta"])
     return peaks
 
 # ==================================================
-# Material Property Core Helpers
+# Material Property Core Helpers (High Precision)
 # ==================================================
 
 def atomic_radius(a, ctype, c=None):
-    if a <= 0: return 0.0
+    if a <= 0: 
+        return 0.0
     return {
         "SC": a / 2.0,
         "BCC": (a * np.sqrt(3.0)) / 4.0,
@@ -185,14 +188,27 @@ def atomic_radius(a, ctype, c=None):
         "HCP": a / 2.0,
     }.get(ctype, 0.0)
 
+
 def packing_factor(ctype):
-    return {"SC": 0.524, "BCC": 0.680, "FCC": 0.740, "HCP": 0.740}.get(ctype, 0.0)
+    """
+    Returns exact analytical Atomic Packing Factor (APF) values.
+    Single source of truth for charts and KPIs.
+    """
+    return {
+        "SC": float(np.pi / 6.0),                      # ~0.5236
+        "BCC": float((np.pi * np.sqrt(3.0)) / 8.0),    # ~0.6802
+        "FCC": float((np.pi * np.sqrt(2.0)) / 6.0),    # ~0.7405
+        "HCP": float((np.pi * np.sqrt(2.0)) / 6.0),    # ~0.7405
+    }.get(ctype, 0.0)
+
 
 def coordination_number(ctype):
     return {"SC": 6, "BCC": 8, "FCC": 12, "HCP": 12}.get(ctype, 0)
 
+
 def close_packed_direction(ctype):
     return {"SC": "[100]", "BCC": "[111]", "FCC": "[110]", "HCP": "[11-20]"}.get(ctype, "N/A")
+
 
 def atoms_per_unit_cell(ctype):
     return {"SC": 1, "BCC": 2, "FCC": 4, "HCP": 6}.get(ctype, 0)
