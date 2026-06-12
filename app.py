@@ -205,79 +205,96 @@ with tab2:
     st.markdown("---")
     st.write(f"**Unit Cell Volume ($V_{{cell}}$):** `{pow(a_val, 3):.4f}` Å³" if ctype != "HCP" else f"**Unit Cell Volume ($V_{{cell}}$):** `{(1.5 * math.sqrt(3) * pow(a_val, 2) * c_val):.4f}` Å³")
     st.write(f"**Total Volume Filled by Atoms:** `{(n_atoms * (4/3) * math.pi * pow(r, 3)):.4f}` Å³")
-
 # --- TAB 3: XRD SIMULATOR ---
 with tab3:
     st.markdown("### XRD Diffraction Pattern Simulator")
     st.caption(f"Crystal: **{ctype}** · a = {a_val} Å · λ = {wavelength_A} Å")
     
     xrd_ctrl1, xrd_ctrl2, xrd_ctrl3 = st.columns([1, 1, 1])
-    with xrd_ctrl1: max_2theta = st.slider("Max 2θ (°)", min_value=45, max_value=120, value=45, step=5)
-    with xrd_ctrl2: show_labels = st.checkbox("Show hkl labels", value=True)
-    with xrd_ctrl3: peak_width = st.slider("Peak width (°)", min_value=0.10, max_value=2.00, value=1.25, step=0.05)
+    with xrd_ctrl1: 
+        max_2theta = st.slider("Max 2θ (°)", min_value=45, max_value=120, value=90, step=5)
+    with xrd_ctrl2: 
+        show_labels = st.checkbox("Show hkl labels", value=True)
+    with xrd_ctrl3: 
+        peak_width = st.slider("Peak width (°)", min_value=0.10, max_value=2.00, value=0.40, step=0.05)
 
+    # Fetching structured peak list data dictionaries from the single source of truth core
     peaks_list = xrd_peaks(ctype, a_val, wavelength_A, two_theta_max=max_2theta, c=c_val)
     
     if peaks_list:
         two_theta_axis = np.linspace(5, max_2theta, 1000)
         continuous_intensity = np.zeros_like(two_theta_axis)
-        sigma = peak_width / 2.355  
+        sigma = peak_width / 2.355  # FWHM to Gaussian standard deviation
         
-        for tt_peak, intensity, _ in peaks_list:
+        # Plotly continuous profiling generation using clean dynamic dictionary indices
+        for peak in peaks_list:
+            tt_peak = peak["two_theta"]
+            intensity = peak["intensity"]
             continuous_intensity += intensity * np.exp(-0.5 * ((two_theta_axis - tt_peak) / sigma) ** 2)
             
         if max(continuous_intensity) > 0:
             continuous_intensity = (continuous_intensity / max(continuous_intensity)) * 100
 
         xrd_fig = go.Figure()
-        xrd_fig.add_trace(go.Scatter(x=two_theta_axis, y=continuous_intensity, mode='lines', line=dict(color='#26d0ce', width=2), name="Profile Curve"))
+        xrd_fig.add_trace(go.Scatter(
+            x=two_theta_axis, y=continuous_intensity, 
+            mode='lines', line=dict(color='#26d0ce', width=2), 
+            name="Profile Curve"
+        ))
         
-        for tt_peak, intensity, label in peaks_list:
-            xrd_fig.add_trace(go.Scatter(x=[tt_peak, tt_peak], y=[0, intensity], mode='lines', line=dict(color='#f0883e', width=1, dash='dash'), showlegend=False, hoverinfo='skip'))
+        for peak in peaks_list:
+            tt_peak = peak["two_theta"]
+            intensity = peak["intensity"]
+            label = peak["label"]
+            
+            xrd_fig.add_trace(go.Scatter(
+                x=[tt_peak, tt_peak], y=[0, intensity], 
+                mode='lines', line=dict(color='#f0883e', width=1, dash='dash'), 
+                showlegend=False, hoverinfo='skip'
+            ))
             if show_labels:
-                xrd_fig.add_trace(go.Scatter(x=[tt_peak], y=[intensity + 3], mode='text', text=[label], textposition="top center", textfont=dict(size=10, color="#c9d1d9"), showlegend=False))
+                xrd_fig.add_trace(go.Scatter(
+                    x=[tt_peak], y=[intensity + 3], 
+                    mode='text', text=[label], 
+                    textposition="top center", 
+                    textfont=dict(size=10, color="#c9d1d9"), 
+                    showlegend=False
+                ))
 
         xrd_fig.update_layout(
             xaxis_title="2θ (°)", yaxis_title="Relative Intensity (%)",
-            xaxis=dict(range=[5, max_2theta], gridcolor="#21262d"), yaxis=dict(range=[0, 115], gridcolor="#21262d"),
-            paper_bgcolor='#0d1117', plot_bgcolor='#0d1117', margin=dict(l=40, r=40, b=40, t=20)
+            xaxis=dict(range=[5, max_2theta], gridcolor="#21262d"), 
+            yaxis=dict(range=[0, 115], gridcolor="#21262d"),
+            paper_bgcolor='#0d1117', plot_bgcolor='#0d1117', 
+            margin=dict(l=40, r=40, b=40, t=20)
         )
         st.plotly_chart(xrd_fig, use_container_width=True)
         
-      st.markdown("#### 📋 PEAK LIST")
+        # 📋 THE HONEST & ROBUST DATA TABLE PIPELINE
+        st.markdown("#### 📋 PEAK LIST")
         table_data = []
         
-        for tt_peak, intensity, label in peaks_list:
-            # 1. No more regex parsing fallback bugs! 
-            # We already have the true h, k, l when generating the peaks, but we can extract 
-            # the clean values or let the engine return 'd' directly if needed. 
-            # Since app.py already has a_val, and label format is strictly "(h k l)" or "(h k i l)":
+        for peak in peaks_list:
+            # Re-verifying interplanar spacing dynamically from backend engine 
+            # using safely structured integer keys passed through the contract
+            d_space = d_spacing(
+                a_val, peak["h"], peak["k"], peak["l"], 
+                crystal_type=ctype, c=c_val
+            )
             
-            # Let's parse securely without breaking on negative signs
-            # Extracting all integers including negatives
-            indices = [int(x) for x in re.findall(r'-?\d+', label)]
-            
-            # Dynamically calculate d_space safely using the clean indices parsed
-            if len(indices) >= 3:
-                # For HCP, use the first, second, and fourth index as h, k, l for d_spacing
-                h_p, k_p = indices[0], indices[1]
-                l_p = indices[3] if ctype == "HCP" and len(indices) == 4 else indices[2]
-                
-                d_space = d_spacing(a_val, h_p, k_p, l_p, crystal_type=ctype, c=c_val)
-            else:
-                d_space = None
-                
-            # 2. Strict Fallback: Explicit UI warning string instead of a silent wrong math calculation (a/sqrt(3))
-            d_display = f"{d_space:.4f}" if (d_space and d_space > 0) else "ERR"
+            # Honest fallback formatting to prevent silent numerical distortions
+            d_display = f"{d_space:.4f}" if d_space else "N/A"
             
             table_data.append({
-                "2θ (°)": f"{tt_peak:.2f}", 
-                "I_rel (%)": f"{intensity:.1f}", 
+                "2θ (°)": f"{peak['two_theta']:.2f}", 
+                "I_rel (%)": f"{peak['intensity']:.1f}", 
                 "d (Å)": d_display, 
-                "hkl families": label
+                "hkl families": peak["label"]
             })
             
         st.dataframe(pd.DataFrame(table_data), use_container_width=True)
+    else:
+        st.error("No reflection vectors fit the current simulation bounds or systematic absence rules.")
 # --- TAB 4: STRUCTURE FACTOR STEP BREAKDOWN ---
 with tab4:
     st.markdown("### Structure Factor F(hkl)")
