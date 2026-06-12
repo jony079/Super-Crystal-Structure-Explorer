@@ -208,15 +208,24 @@ with tab3:
     with xrd_ctrl3: 
         peak_width = st.slider("Peak width (°)", min_value=0.10, max_value=2.00, value=0.40, step=0.05)
 
-    # Fetching structured peak list data dictionaries from the single source of truth core
+ # Fetching structured peak list data dictionaries from the single source of truth core
     peaks_list = xrd_peaks(ctype, a_val, wavelength_A, two_theta_max=max_2theta, c=c_val)
     
     if peaks_list:
         two_theta_axis = np.linspace(5, max_2theta, 1000)
         continuous_intensity = np.zeros_like(two_theta_axis)
-        sigma = peak_width / 2.355  # FWHM to Gaussian standard deviation
+        
+        # Exact Analytical FWHM to Gaussian Standard Deviation Conversion
+        # FWHM = 2 * sqrt(2 * ln(2)) * sigma -> sigma = FWHM / 2.354820045...
+        fwhm_to_sigma_const = 2.0 * math.sqrt(2.0 * math.log(2.0))
+        sigma = peak_width / fwhm_to_sigma_const
         
         # Plotly continuous profiling generation using clean dynamic dictionary indices
+        for peak in peaks_list:
+            tt_peak = peak["two_theta"]
+            intensity = peak["intensity"]
+            # Applying the rigorous analytical sigma to build the exact Gaussian profile shape
+            continuous_intensity += intensity * np.exp(-0.5 * ((two_theta_axis - tt_peak) / sigma) ** 2)
         for peak in peaks_list:
             tt_peak = peak["two_theta"]
             intensity = peak["intensity"]
