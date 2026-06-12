@@ -96,13 +96,12 @@ def structure_factor(ctype, h, k, l):
 # ==================================================
 # XRD Peak Simulation
 # ==================================================
-
 @profile_performance
 @st.cache_data
 def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
     """
-    Simulate diffraction peaks with exact unpacking format required by the UI layer.
-    Returns list of tuples: (two_theta, intensity, hkl_label)
+    Simulate diffraction peaks and return raw structured data.
+    No UI-bound text hacking inside the mathematical core.
     """
     peaks = []
 
@@ -112,7 +111,7 @@ def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
                 if (h, k, l) == (0, 0, 0):
                     continue
 
-                # 1. Structural Absences Filter straight from Engine
+                # Structural absences filter from engine
                 F_sq, F_rel, status, _ = structure_factor(crystal_type, h, k, l)
                 if status == "Forbidden":
                     continue
@@ -133,28 +132,37 @@ def xrd_peaks(crystal_type, a, wavelength, two_theta_max=120, c=None):
 
                 intensity = float(F_rel * 100.0)
                 
-                # Format textual representation identifier safely for dataframes
+                # Standard physical label mapping
                 if crystal_type == "HCP":
                     i = -(h + k)
                     label = f"({h} {k} {i} {l})"
                 else:
                     label = f"({h} {k} {l})"
 
-                # 2. Check for duplicate peak angles (Resolution overlap factor)
+                # Check for duplicate peak angles
                 duplicate = False
-                for idx in range(len(peaks)):
-                    if abs(peaks[idx][0] - two_theta) < 0.1:
+                for p in peaks:
+                    if abs(p["two_theta"] - two_theta) < 0.1:
                         duplicate = True
-                        # Preserve highest constructive intensity match
-                        if intensity > peaks[idx][1]:
-                            peaks[idx] = (two_theta, intensity, label)
+                        if intensity > p["intensity"]:
+                            p["intensity"] = intensity
+                            p["label"] = label
+                            p["h"], p["k"], p["l"] = h, k, l
                         break
 
                 if not duplicate and intensity > 0.1:
-                    peaks.append((two_theta, intensity, label))
+                    # Explicit structured contract instead of ambiguous tuple
+                    peaks.append({
+                        "two_theta": two_theta,
+                        "intensity": intensity,
+                        "label": label,
+                        "h": h,
+                        "k": k,
+                        "l": l
+                    })
 
-    # Sort peaks chronologically by angle theta
-    peaks.sort(key=lambda item: item[0])
+    # Sort dictionary items chronologically by angle
+    peaks.sort(key=lambda x: x["two_theta"])
     return peaks
 
 # ==================================================
