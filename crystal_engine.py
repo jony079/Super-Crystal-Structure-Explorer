@@ -30,13 +30,13 @@ BASIS_MAP = {
 # ==================================================
 # d-spacing
 # ==================================================
-
 @profile_performance
 @st.cache_data
 def d_spacing(a, h, k, l, crystal_type="SC", c=None):
     """
-    Calculate interplanar spacing dynamically.
+    Calculate interplanar spacing dynamically with strict parameter validation.
     """
+    # Defensive validations for baseline parameters
     if (h, k, l) == (0, 0, 0) or a <= 0:
         return None
 
@@ -47,9 +47,16 @@ def d_spacing(a, h, k, l, crystal_type="SC", c=None):
         return float(a / np.sqrt(denominator))
 
     if crystal_type == "HCP":
-        if c is None or c <= 0:
-            return None
-        # HCP d-spacing standard formula
+        # CRITICAL CONTRACT: Fail-fast boundary enforcement
+        if c is None:
+            raise ValueError(
+                "d_spacing for HCP requires explicit c parameter. "
+                "c=None is not valid for hexagonal systems."
+            )
+        if c <= 0:
+            return None  # Return None for invalid input values, but handle types strictly above
+
+        # HCP d-spacing analytical formula
         term1 = (4.0 / 3.0) * ((h**2 + h*k + k**2) / (a**2))
         term2 = (l**2) / (c**2)
         denominator = term1 + term2
