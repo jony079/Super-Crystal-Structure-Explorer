@@ -22,12 +22,21 @@ An interactive, premium 3D web application designed for materials science and en
 * **Mathematical Engine:** NumPy & Math
 * **Data Management:** Pandas
 
----
 
 ## 💻 Local Installation & Setup
 
-Follow these steps to clone and run this project locally on your machine:
+Follow these simple steps to set up and run the application locally on your machine in under 5 minutes.
 
 ### 1. Clone the Repository
-git clone https://github.com/jony079/Super-Crystal-Structure-Explorer.git
-cd Super-Crystal-Structure-Explorer
+Open your terminal or command prompt and run the following commands to clone the project repository and navigate into the directory:
+```bash
+git clone [https://github.com/jony079/Super-Crystal-Structure-Explorer.git](https://github.com/jony079/Super-Crystal-Structure-Explorer.git)
+cd Super-Crystal-Structure-
+2. Create and Activate a Virtual Enviroment
+For Windows:
+python -m venv venv
+venv\Scripts\activate
+3. Install Project Dependencies
+pip install -r requirements.txt
+4. Launch the Interactive Dashboard!
+streamlit run app.py
