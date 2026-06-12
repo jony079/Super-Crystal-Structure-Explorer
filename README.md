@@ -2,7 +2,7 @@
 
 An interactive, premium 3D web application designed for materials science and engineering students, researchers, and educators. This toolkit simplifies the visualization and analysis of crystallographic concepts including unit cells, Miller indices, X-ray diffraction (XRD) simulation, and atomic packing dynamics.
 
-✨ **Live Demo:** [View App on Streamlit](https://cubic-crystal-visualizer-mse-cxapykbcsf5a5aysnzscjj.streamlit.app/)
+✨Live app :https://super-crystal-structure-explorer-qjpuamxeaehdxefv63d6re.streamlit.app/
 
 ---
 
