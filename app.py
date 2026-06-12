@@ -244,17 +244,40 @@ with tab3:
         )
         st.plotly_chart(xrd_fig, use_container_width=True)
         
-        st.markdown("#### 📋 PEAK LIST")
+      st.markdown("#### 📋 PEAK LIST")
         table_data = []
+        
         for tt_peak, intensity, label in peaks_list:
-            # FIXED: Removed expensive regex lookup completely. 
-            # Safely fall back to default interplanar values dynamically via mathematical bounds.
-            d_space = d_spacing(a_val, h, k, l, crystal_type=ctype, c=c_val) or (a_val / math.sqrt(3))
-            table_data.append({"2θ (°)": f"{tt_peak:.2f}", "I_rel (%)": f"{intensity:.1f}", "d (Å)": f"{d_space:.4f}", "hkl families": label})
+            # 1. No more regex parsing fallback bugs! 
+            # We already have the true h, k, l when generating the peaks, but we can extract 
+            # the clean values or let the engine return 'd' directly if needed. 
+            # Since app.py already has a_val, and label format is strictly "(h k l)" or "(h k i l)":
+            
+            # Let's parse securely without breaking on negative signs
+            # Extracting all integers including negatives
+            indices = [int(x) for x in re.findall(r'-?\d+', label)]
+            
+            # Dynamically calculate d_space safely using the clean indices parsed
+            if len(indices) >= 3:
+                # For HCP, use the first, second, and fourth index as h, k, l for d_spacing
+                h_p, k_p = indices[0], indices[1]
+                l_p = indices[3] if ctype == "HCP" and len(indices) == 4 else indices[2]
+                
+                d_space = d_spacing(a_val, h_p, k_p, l_p, crystal_type=ctype, c=c_val)
+            else:
+                d_space = None
+                
+            # 2. Strict Fallback: Explicit UI warning string instead of a silent wrong math calculation (a/sqrt(3))
+            d_display = f"{d_space:.4f}" if (d_space and d_space > 0) else "ERR"
+            
+            table_data.append({
+                "2θ (°)": f"{tt_peak:.2f}", 
+                "I_rel (%)": f"{intensity:.1f}", 
+                "d (Å)": d_display, 
+                "hkl families": label
+            })
+            
         st.dataframe(pd.DataFrame(table_data), use_container_width=True)
-    else:
-        st.error("No reflection vectors fit the simulation bounds.")
-
 # --- TAB 4: STRUCTURE FACTOR STEP BREAKDOWN ---
 with tab4:
     st.markdown("### Structure Factor F(hkl)")
