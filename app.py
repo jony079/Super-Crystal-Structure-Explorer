@@ -328,34 +328,36 @@ with tab5:
     pack_col1, pack_col2 = st.columns([1.2, 1])
     with pack_col1:
         st.markdown("##### APF DERIVATION & METRICS")
-        st.latex(r"APF = \frac{N_{atoms} \cdot \frac{4}{3}\pi r^3}{V_{cell}}")
+        st.latex(r"APF = \frac{N_{\text{atoms}} \cdot \frac{4}{3}\pi r^3}{V_{\text{cell}}}")
         
+        # Displaying current crystal APF fetched directly from runtime variable
         st.markdown(f"**Current Structural $APF_{{{ctype}}}$:** `{apf:.5f}` ({apf*100:.3f}%)")
         
-        # 📊 DYNAMIC CHART GENERATION PATH: Fetching live data array directly from single truth engine
-        all_structures = ["SC", "BCC", "FCC", "HCP"]
-        live_apf_values = [packing_factor(s) * 100.0 for s in all_structures]
-        live_text_labels = [f"{v:.2f}%" for v in live_apf_values]
+        # 📊 SINGLE SOURCE OF TRUTH: Derive chart metrics directly from the engine
+        structures = ["SC", "BCC", "FCC", "HCP"]
+        apf_values = [packing_factor(s) * 100.0 for s in structures]
+        text_labels = [f"{v:.2f}%" for v in apf_values]
         
         bar_fig = go.Figure(go.Bar(
-            x=all_structures, 
-            y=live_apf_values,
-            text=live_text_labels, 
+            x=structures, 
+            y=apf_values,
+            text=text_labels, 
             textposition='auto',
             marker_color=['#707a8a', '#f0883e', '#ff4b4b', '#ab63fa']
         ))
         
-        # Live benchmark tracking bar target line match
+        # Add a dynamic benchmark target line matching the currently active sidebar crystal type
         bar_fig.add_shape(
             type="line", x0=-0.5, x1=3.5, 
             y0=apf * 100.0, y1=apf * 100.0, 
-            line=dict(color="red", width=2, dash="dash")
+            line=dict(color="#ff4b4b", width=2, dash="dash")
         )
         
         bar_fig.update_layout(
             yaxis_title="Dynamic APF (%)", 
             paper_bgcolor='#0d1117', plot_bgcolor='#0d1117', 
-            margin=dict(t=10, b=10, l=10, r=10), height=250
+            margin=dict(t=10, b=10, l=10, r=10), height=250,
+            xaxis=dict(gridcolor="#21262d"), yaxis=dict(gridcolor="#21262d")
         )
         st.plotly_chart(bar_fig, use_container_width=True)
 
@@ -365,38 +367,64 @@ with tab5:
         st.info(f"Interactive 3D View: Central atom surrounded by {cn} nearest neighbors.")
         
         net_fig = go.Figure()
-        net_fig.add_trace(go.Scatter3d(x=[0], y=[0], z=[0], mode='markers', marker=dict(size=22, color='#ff4b4b'), name="Central Atom"))
+        net_fig.add_trace(go.Scatter3d(
+            x=[0], y=[0], z=[0], 
+            mode='markers', 
+            marker=dict(size=22, color='#ff4b4b'), 
+            name="Central Atom"
+        ))
         
+        # Resolve neighbor vectors
         neighbors = []
         if ctype == "SC": 
             neighbors = [(1,0,0), (-1,0,0), (0,1,0), (0,-1,0), (0,0,1), (0,0,-1)]
         elif ctype == "BCC": 
             r_n = 0.5
-            neighbors = [(r_n,r_n,r_n), (r_n,r_n,-r_n), (r_n,-r_n,r_n), (r_n,-r_n,-r_n), (-r_n,r_n,r_n), (-r_n,r_n,-r_n), (-r_n,-r_n,r_n), (-r_n,-r_n,-r_n)]
+            neighbors = [(r_n,r_n,r_n), (r_n,r_n,-r_n), (r_n,-r_n,r_n), (r_n,-r_n,-r_n), 
+                         (-r_n,r_n,r_n), (-r_n,r_n,-r_n), (-r_n,-r_n,r_n), (-r_n,-r_n,-r_n)]
         elif ctype == "FCC": 
             r_n = 0.5
-            neighbors = [(r_n,r_n,0), (r_n,-r_n,0), (-r_n,r_n,0), (-r_n,-r_n,0), (r_n,0,r_n), (r_n,0,-r_n), (-r_n,0,r_n), (-r_n,0,-r_n), (0,r_n,r_n), (0,r_n,-r_n), (0,-r_n,r_n), (0,-r_n,-r_n)]
+            neighbors = [(r_n,r_n,0), (r_n,-r_n,0), (-r_n,r_n,0), (-r_n,-r_n,0), 
+                         (r_n,0,r_n), (r_n,0,-r_n), (-r_n,0,r_n), (-r_n,0,-r_n), 
+                         (0,r_n,r_n), (0,r_n,-r_n), (0,-r_n,r_n), (0,-r_n,-r_n)]
         elif ctype == "HCP": 
-            neighbors = [(1,0,0), (-1,0,0), (0.5, 0.866, 0), (-0.5, 0.866, 0), (0.5, -0.288, 0.816), (-0.5, -0.288, 0.816), (0, 0.577, 0.816), (0, 0.577, -0.816), (0.5, -0.288, -0.816), (-0.5, -0.288, -0.816)]
+            neighbors = [(1,0,0), (-1,0,0), (0.5, 0.866, 0), (-0.5, 0.866, 0), 
+                         (0.5, -0.288, 0.816), (-0.5, -0.288, 0.816), (0, 0.577, 0.816), 
+                         (0, 0.577, -0.816), (0.5, -0.288, -0.816), (-0.5, -0.288, -0.816)]
 
         for i, (nx, ny, nz) in enumerate(neighbors):
-            net_fig.add_trace(go.Scatter3d(x=[0, nx], y=[0, ny], z=[0, nz], mode='lines', line=dict(color='#30363d', width=3), hoverinfo='skip', showlegend=False))
-            net_fig.add_trace(go.Scatter3d(x=[nx], y=[ny], z=[nz], mode='markers+text', marker=dict(size=14, color='#26d0ce'), text=[str(i+1)], textposition="middle center", textfont=dict(size=9, color="#000"), showlegend=False))
+            net_fig.add_trace(go.Scatter3d(
+                x=[0, nx], y=[0, ny], z=[0, nz], 
+                mode='lines', line=dict(color='#30363d', width=3), 
+                hoverinfo='skip', showlegend=False
+            ))
+            net_fig.add_trace(go.Scatter3d(
+                x=[nx], y=[ny], z=[nz], 
+                mode='markers+text', 
+                marker=dict(size=14, color='#26d0ce'), 
+                text=[str(i+1)], textposition="middle center", 
+                textfont=dict(size=9, color="#000"), showlegend=False
+            ))
             
         net_fig.update_layout(
             scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False)),
-            paper_bgcolor='#0d1117', margin=dict(t=10,b=10,l=10,r=10), height=300, showlegend=False
+            paper_bgcolor='#0d1117', margin=dict(t=10, b=10, l=10, r=10), height=300, showlegend=False
         )
         st.plotly_chart(net_fig, use_container_width=True)
 
+    # 📋 DYNAMIC SUMMARY TABLE: Re-verifying absolute analytical system state records
     st.markdown("##### ALL STRUCTURES SUMMARY")
-    # Generating summary dataframe records dynamically from core matrix
     summary_df = pd.DataFrame([
-        {"Type": s, "CN": str(coordination_number(s)), "N/cell": str(atoms_per_unit_cell(s)), "APF": f"{packing_factor(s):.5f}", "CP Dir": close_packed_direction(s)}
-        for s in all_structures
+        {
+            "Type": s, 
+            "CN": str(coordination_number(s)), 
+            "N/cell": str(atoms_per_unit_cell(s)), 
+            "APF": f"{packing_factor(s):.5f}", 
+            "CP Dir": close_packed_direction(s)
+        }
+        for s in structures
     ])
     st.table(summary_df)
-
 # --- SYSTEM OBSERVABILITY LOGS ---
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⚙️ SYSTEM OBSERVABILITY")
