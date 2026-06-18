@@ -49,19 +49,22 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# ==========================================
+
+# ===# ==========================================
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# THE ABSOLUTE REMEDY: Core CSS Pattern Matching for unique sidebar icons ONLY
+# THE ABSOLUTE REMEDY: Core CSS Pattern Matching with generic HTML selectors
 st.markdown(
     """
     <style>
-    /* 1. Target precisely the sidebar toggle button elements regardless of view port */
+    /* Desktop & Mobile high-level container override */
     [data-testid="stSidebarCollapseButton"],
     button[aria-label="Expand sidebar"],
     button[aria-label="Collapse sidebar"],
-    .stSidebarCollapseButton {
+    .stSidebarCollapseButton,
+    div[class*="Header"] button:first-child,
+    header button:first-child {
         background-color: #1e293b !important;   /* Solid high contrast background */
         border: 2px solid #38bdf8 !important;   /* Glowing cyan continuous border */
         border-radius: 8px !important;          /* Clean smooth edge profile */
@@ -73,24 +76,27 @@ st.markdown(
         justify-content: center !important;
         
         /* SOLID PERMANENT GLOW (Bypasses hover constraints) */
-        box-shadow: 0px 0px 14px rgba(56, 189, 248, 0.95) !important;
+        box-shadow: 0px 0px 16px rgba(56, 189, 248, 0.95) !important;
+        -webkit-box-shadow: 0px 0px 16px rgba(56, 189, 248, 0.95) !important;
     }
 
-    /* 2. Target specific arrow vectors to guarantee high vector visibility */
+    /* Force visibility and target the specific vector paths inside header components */
     [data-testid="stSidebarCollapseButton"] svg,
     button[aria-label="Expand sidebar"] svg,
-    button[aria-label="Collapse sidebar"] svg {
+    button[aria-label="Collapse sidebar"] svg,
+    header button:first-child svg,
+    div[class*="Header"] button svg {
         fill: #38bdf8 !important;               /* Custom vector fill color */
         color: #38bdf8 !important;              /* Consistent border path fill */
-        transform: scale(1.2) !important;       /* Clean dimension boost */
+        transform: scale(1.25) !important;      /* Clean dimension boost */
     }
 
-    /* 3. Defensive styling: Ensure Fork/GitHub headers stay intact by blocking generic overrides */
+    /* Target safe exclusions for deploy/fork dropdown links to keep them un-glitched */
     header div[class*="stAppDeployButton"] button, 
-    header a[href*="github"] {
+    header button[id*="tabs"],
+    [data-testid="stDecoration"] {
         box-shadow: none !important;
         border: none !important;
-        background-color: transparent !important;
     }
     </style>
     """,
@@ -141,8 +147,7 @@ else:
     cn = coordination_number(ctype)
     cpd = close_packed_direction(ctype)
     n_atoms = atoms_per_unit_cell(ctype)
-    F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)
-# ==========================================
+    F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)=======================================
 # STEP 2: MAIN DASHBOARD HEADER & KPI CARDS
 # ==========================================
 st.markdown('# <span style="color:#58a6ff">■</span> Crystal Structure Explorer', unsafe_allow_html=True)
