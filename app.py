@@ -53,44 +53,57 @@ st.markdown("""
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# CRITICAL STYLE INJECTION: Making the side panel button PERMANENTLY visible & glowing (No hover required)
+# CRITICAL NEON STYLE INJECTION: Absolute global selector to force-glow the arrow containers
 st.markdown(
     """
     <style>
-    /* Targetting BOTH collapse (>>) and expand (<<) sidebar buttons globally */
-    [data-testid="stSidebarCollapseButton"], 
-    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"] {
-        background-color: #1e293b !important;   /* Solid dark background contrast always visible */
-        border: 2px solid #38bdf8 !important;   /* Bright neon cyan border always visible */
-        border-radius: 8px !important;          /* Rounded profile styling */
-        padding: 6px !important;                /* Structural spacing spacing */
-        display: flex !important;
+    /* 1. Targetting the collapsed main chevron container (>>) globally at root level */
+    button[data-testid="stSidebarCollapseButton"],
+    [class*="stSidebarCollapseButton"],
+    div[class*="Header"] button {
+        background-color: #1e293b !important;   /* Solid dark background contrast */
+        border: 2px solid #38bdf8 !important;   /* Permanent bright neon border layout */
+        border-radius: 8px !important;          /* Sharp rounded profile */
+        padding: 5px !important;
+        opacity: 1 !important;                  /* Bypass system auto-fade tracking */
+        visibility: visible !important;
+        display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        opacity: 1 !important;                  /* Forces system to bypass hiding mechanism */
-        visibility: visible !important;         /* Dynamic frame persistence indicator */
         
-        /* THE CRITICAL PERMANENT GLOW EFFECT (Works without mouse hover) */
-        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.8) !important; 
-        transition: all 0.3s ease-in-out !important;
+        /* HEAVY PERMANENT NEON GLOW EFFECTS */
+        box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
+        -webkit-box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
     }
     
-    /* Targetting the inner SVG chevron arrow graphics directly */
-    [data-testid="stSidebarCollapseButton"] svg,
-    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"] svg {
-        color: #38bdf8 !important;              /* High contrast blue stroke */
-        fill: #38bdf8 !important;               /* SVG logic coloring injection */
-        width: 24px !important;                 /* Explicit dimensions */
-        height: 24px !important;
-        transform: scale(1.2) !important;       /* Arrow size increased */
+    /* 2. Targetting the expanded sidebar controller layout (<<) inside the panel frame */
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"],
+    section[data-testid="stSidebar"] [class*="CollapseButton"] {
+        background-color: #1e293b !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 8px !important;
+        padding: 5px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        
+        /* MATCHING HEAVY GLOW */
+        box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
     }
-    
-    /* Pulse glow intensity slightly on user mouse hover just for extra juice */
-    [data-testid="stSidebarCollapseButton"]:hover,
-    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"]:hover {
+
+    /* 3. Global SVG target tracking to paint the raw chevron paths cyan */
+    button[data-testid="stSidebarCollapseButton"] svg,
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] svg,
+    div[class*="Header"] button svg {
+        fill: #38bdf8 !important;               /* Cyan fill vector color */
+        color: #38bdf8 !important;              /* Neon stroke fallback vector */
+        transform: scale(1.3) !important;       /* Vector scale magnification */
+    }
+
+    /* Hover boost configuration */
+    button[data-testid="stSidebarCollapseButton"]:hover,
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"]:hover {
         background-color: #0f172a !important;
-        border-color: #0ea5e9 !important;
-        box-shadow: 0px 0px 22px #38bdf8 !important; /* Hyper-glow on touch/hover */
+        box-shadow: 0px 0px 25px #38bdf8 !important; /* Hyper boost glow matrix on mouse hover */
     }
     </style>
     """,
