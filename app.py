@@ -53,29 +53,26 @@ st.markdown("""
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# BULLETPROOF NEON STYLE INJECTION: Direct element selector bypass mechanism
+# EXACT ARROW TARGETING: Only << and >> will permanently glow
 st.markdown(
     """
     <style>
-    /* 1. Target ALL top navbar buttons (including collapsed >> arrow button) */
-    header button, 
-    [data-testid="stSidebarCollapseButton"],
-    .stSidebarCollapseButton,
-    div[class*="Header"] button {
-        background-color: #1e293b !important;   /* Solid dark background contrast */
-        border: 2px solid #38bdf8 !important;   /* Permanent bright neon border layout */
-        border-radius: 8px !important;          /* Sharp rounded profile */
+    /* 1. Target exact COLLAPSED button (>>) via its unique action attribute */
+    button[aria-label="Expand sidebar"],
+    [data-testid="stSidebarCollapseButton"] {
+        background-color: #1e293b !important;   /* Dark contrast background */
+        border: 2px solid #38bdf8 !important;   /* Neon cyan border outline */
+        border-radius: 8px !important;          /* Sharp curved border */
         padding: 5px !important;
-        opacity: 1 !important;                  /* Bypass system auto-fade tracking */
+        opacity: 1 !important;                  /* Stop system from fading it out */
         visibility: visible !important;
         display: inline-flex !important;
         
-        /* HEAVY PERMANENT NEON GLOW EFFECTS */
-        box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
+        /* CONSTANT NEON GLOW */
+        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.9) !important;
     }
     
-    /* 2. Target the expanded sidebar controller layout (<<) inside the panel frame */
-    section[data-testid="stSidebar"] button,
+    /* 2. Target exact EXPANDED button (<<) inside the panel frame */
     section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] {
         background-color: #1e293b !important;
         border: 2px solid #38bdf8 !important;
@@ -84,24 +81,25 @@ st.markdown(
         opacity: 1 !important;
         visibility: visible !important;
         
-        /* MATCHING HEAVY GLOW */
-        box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
+        /* CONSTANT NEON GLOW */
+        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.9) !important;
     }
 
-    /* 3. Global SVG target tracking to paint the raw chevron paths cyan */
-    header button svg,
+    /* 3. Apply color change ONLY to the selected arrow vectors */
+    button[aria-label="Expand sidebar"] svg,
     [data-testid="stSidebarCollapseButton"] svg,
-    section[data-testid="stSidebar"] button svg {
-        fill: #38bdf8 !important;               /* Cyan fill vector color */
-        color: #38bdf8 !important;              /* Neon stroke fallback vector */
-        transform: scale(1.3) !important;       /* Vector scale magnification */
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] svg {
+        fill: #38bdf8 !important;               /* Cyan vector color */
+        color: #38bdf8 !important;              /* Outline vector fallback */
+        transform: scale(1.2) !important;       /* Icon size boost */
     }
 
-    /* Hover boost configuration */
-    header button:hover,
-    section[data-testid="stSidebar"] button:hover {
+    /* Interactive response logic for touch or click */
+    button[aria-label="Expand sidebar"]:hover,
+    [data-testid="stSidebarCollapseButton"]:hover,
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"]:hover {
         background-color: #0f172a !important;
-        box-shadow: 0px 0px 25px #38bdf8 !important; /* Hyper boost glow matrix on mouse hover */
+        box-shadow: 0px 0px 22px #38bdf8 !important; /* Extra hyper-glow on click/hover */
     }
     </style>
     """,
