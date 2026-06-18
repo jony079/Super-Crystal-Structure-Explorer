@@ -53,38 +53,44 @@ st.markdown("""
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# CRITICAL STYLE INJECTION: Making the side panel toggle arrow large and visible
+# CRITICAL STYLE INJECTION: Making the side panel button PERMANENTLY visible & glowing (No hover required)
 st.markdown(
     """
     <style>
-    /* Side panel collapse arrow container styling */
-    [data-testid="stSidebarCollapseButton"] {
-        background-color: #1e293b !important;   /* Solid dark background contrast */
-        border: 2px solid #38bdf8 !important;   /* Bright neon/blue border outline */
-        border-radius: 8px !important;          /* Sharp rounded design */
+    /* Targetting BOTH collapse (>>) and expand (<<) sidebar buttons globally */
+    [data-testid="stSidebarCollapseButton"], 
+    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"] {
+        background-color: #1e293b !important;   /* Solid dark background contrast always visible */
+        border: 2px solid #38bdf8 !important;   /* Bright neon cyan border always visible */
+        border-radius: 8px !important;          /* Rounded profile styling */
         padding: 6px !important;                /* Structural spacing spacing */
-        margin-left: 10px !important;
-        margin-top: 5px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        box-shadow: 0px 0px 8px rgba(56, 189, 248, 0.4) !important; /* Soft default glow */
+        opacity: 1 !important;                  /* Forces system to bypass hiding mechanism */
+        visibility: visible !important;         /* Dynamic frame persistence indicator */
+        
+        /* THE CRITICAL PERMANENT GLOW EFFECT (Works without mouse hover) */
+        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.8) !important; 
+        transition: all 0.3s ease-in-out !important;
     }
     
-    /* Targetting the inner SVG chevron (arrow) icon directly for high visibility */
-    [data-testid="stSidebarCollapseButton"] svg {
-        color: #38bdf8 !important;              /* Icon color stroke fix */
-        fill: #38bdf8 !important;               /* Custom color logic */
-        width: 24px !important;                 /* Explicit width override */
-        height: 24px !important;                /* Explicit height override */
-        transform: scale(1.2) !important;       /* Arrow size balanced boost */
+    /* Targetting the inner SVG chevron arrow graphics directly */
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"] svg {
+        color: #38bdf8 !important;              /* High contrast blue stroke */
+        fill: #38bdf8 !important;               /* SVG logic coloring injection */
+        width: 24px !important;                 /* Explicit dimensions */
+        height: 24px !important;
+        transform: scale(1.2) !important;       /* Arrow size increased */
     }
     
-    /* Hover state visual cues */
-    [data-testid="stSidebarCollapseButton"]:hover {
-        background-color: #0f172a !important;   /* Darker background on hover */
-        border-color: #0ea5e9 !important;       /* Deeper blue border highlight */
-        box-shadow: 0px 0px 14px #38bdf8 !important; /* Image layout neon glow */
+    /* Pulse glow intensity slightly on user mouse hover just for extra juice */
+    [data-testid="stSidebarCollapseButton"]:hover,
+    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"]:hover {
+        background-color: #0f172a !important;
+        border-color: #0ea5e9 !important;
+        box-shadow: 0px 0px 22px #38bdf8 !important; /* Hyper-glow on touch/hover */
     }
     </style>
     """,
@@ -104,7 +110,7 @@ else:
     c_val = None  # Explicit, never implicit guess vectors
 
 st.sidebar.markdown("### MILLER INDICES (HKL)")
-# FIXED BUG 1: Columns dynamic explicit sidebar rendering mapping via grid framework
+# FIXED BUG: Columns dynamic explicit sidebar rendering mapping via grid framework
 col_h, col_k, col_l = st.sidebar.columns(3)
 with col_h: h = col_h.number_input("h", value=1, step=1, key="input_h")
 with col_k: k = col_k.number_input("k", value=1, step=1, key="input_k")
@@ -117,7 +123,7 @@ atom_size = st.sidebar.slider("Atom display size", min_value=0.05, max_value=0.5
 st.sidebar.markdown("### XRD SETTINGS")
 wavelength_A = st.sidebar.number_input("X-ray wavelength λ (Å)", value=1.5406, min_value=0.1, step=0.0001, format="%.4f")
 
-# CRITICAL FIX & FIXED BUG 2: Dynamic zero plane checking configuration pipeline safely evaluation
+# CRITICAL FIX: Dynamic zero plane checking configuration pipeline safely evaluation
 if h == 0 and k == 0 and l == 0:
     st.sidebar.error("❌ Miller indices (h,k,l) cannot all be zero!")
     d, F_sq, F_rel, F_rule = float('inf'), 0.0, 0.0, "Forbidden"
