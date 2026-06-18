@@ -49,10 +49,48 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
 # ==========================================
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
+
+# CRITICAL STYLE INJECTION: Making the side panel toggle arrow large and visible
+st.markdown(
+    """
+    <style>
+    /* Side panel collapse arrow container styling */
+    [data-testid="stSidebarCollapseButton"] {
+        background-color: #1e293b !important;   /* Solid dark background contrast */
+        border: 2px solid #38bdf8 !important;   /* Bright neon/blue border outline */
+        border-radius: 8px !important;          /* Sharp rounded design */
+        padding: 6px !important;                /* Structural spacing spacing */
+        margin-left: 10px !important;
+        margin-top: 5px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0px 0px 8px rgba(56, 189, 248, 0.4) !important; /* Soft default glow */
+    }
+    
+    /* Targetting the inner SVG chevron (arrow) icon directly for high visibility */
+    [data-testid="stSidebarCollapseButton"] svg {
+        color: #38bdf8 !important;              /* Icon color stroke fix */
+        fill: #38bdf8 !important;               /* Custom color logic */
+        width: 24px !important;                 /* Explicit width override */
+        height: 24px !important;                /* Explicit height override */
+        transform: scale(1.2) !important;       /* Arrow size balanced boost */
+    }
+    
+    /* Hover state visual cues */
+    [data-testid="stSidebarCollapseButton"]:hover {
+        background-color: #0f172a !important;   /* Darker background on hover */
+        border-color: #0ea5e9 !important;       /* Deeper blue border highlight */
+        box-shadow: 0px 0px 14px #38bdf8 !important; /* Image layout neon glow */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.sidebar.markdown("## CRYSTAL TYPE")
 ctype = st.sidebar.radio("", ["SC", "BCC", "FCC", "HCP"], index=2, label_visibility="collapsed")
 
@@ -66,10 +104,11 @@ else:
     c_val = None  # Explicit, never implicit guess vectors
 
 st.sidebar.markdown("### MILLER INDICES (HKL)")
+# FIXED BUG 1: Columns dynamic explicit sidebar rendering mapping via grid framework
 col_h, col_k, col_l = st.sidebar.columns(3)
-with col_h: h = st.number_input("h", value=1, step=1, key="input_h")
-with col_k: k = st.number_input("k", value=1, step=1, key="input_k")
-with col_l: l = st.number_input("l", value=0, step=1, key="input_l")
+with col_h: h = col_h.number_input("h", value=1, step=1, key="input_h")
+with col_k: k = col_k.number_input("k", value=1, step=1, key="input_k")
+with col_l: l = col_l.number_input("l", value=0, step=1, key="input_l")
 
 st.sidebar.markdown("### VISUALIZATION OPTIONS")
 plane_shift = st.sidebar.slider("Plane shift C (hx+ky+lz = C)", min_value=-2.0, max_value=2.0, value=1.00, step=0.1)
@@ -78,15 +117,25 @@ atom_size = st.sidebar.slider("Atom display size", min_value=0.05, max_value=0.5
 st.sidebar.markdown("### XRD SETTINGS")
 wavelength_A = st.sidebar.number_input("X-ray wavelength λ (Å)", value=1.5406, min_value=0.1, step=0.0001, format="%.4f")
 
-# CRITICAL FIX: Run calculation pipelines after UI inputs are resolved to prevent NameError
-d = d_spacing(a_val, h, k, l, crystal_type=ctype, c=c_val)
-r = atomic_radius(a_val, ctype, c=c_val)
-apf = packing_factor(ctype)
-cn = coordination_number(ctype)
-cpd = close_packed_direction(ctype)
-n_atoms = atoms_per_unit_cell(ctype)
-F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)
-
+# CRITICAL FIX & FIXED BUG 2: Dynamic zero plane checking configuration pipeline safely evaluation
+if h == 0 and k == 0 and l == 0:
+    st.sidebar.error("❌ Miller indices (h,k,l) cannot all be zero!")
+    d, F_sq, F_rel, F_rule = float('inf'), 0.0, 0.0, "Forbidden"
+    r = atomic_radius(a_val, ctype, c=c_val)
+    apf = packing_factor(ctype)
+    cn = coordination_number(ctype)
+    cpd = close_packed_direction(ctype)
+    n_atoms = atoms_per_unit_cell(ctype)
+    n_basis = 0
+else:
+    # Safe numerical execution pipelines
+    d = d_spacing(a_val, h, k, l, crystal_type=ctype, c=c_val)
+    r = atomic_radius(a_val, ctype, c=c_val)
+    apf = packing_factor(ctype)
+    cn = coordination_number(ctype)
+    cpd = close_packed_direction(ctype)
+    n_atoms = atoms_per_unit_cell(ctype)
+    F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)
 # ==========================================
 # STEP 2: MAIN DASHBOARD HEADER & KPI CARDS
 # ==========================================
