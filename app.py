@@ -53,57 +53,44 @@ st.markdown("""
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# THE FINAL ULTIMATE GLOW INJECTION: Targets by exact structural position
+# THE ABSOLUTE REMEDY: Core CSS Pattern Matching for unique sidebar icons ONLY
 st.markdown(
     """
     <style>
-    /* 1. Target the absolute first button in the top header section (Always the >> button) */
-    div[data-testid="stHeader"] > header button:first-child,
-    div[class*="stHeader"] button:first-child,
-    button[data-testid="stSidebarCollapseButton"] {
-        background-color: #1e293b !important;   /* Solid dark background contrast */
-        border: 2px solid #38bdf8 !important;   /* Permanent bright neon border */
-        border-radius: 8px !important;          /* Sharp curved border */
-        padding: 6px !important;
-        opacity: 1 !important;                  /* Prevents Streamlit from auto-fading */
+    /* 1. Target precisely the sidebar toggle button elements regardless of view port */
+    [data-testid="stSidebarCollapseButton"],
+    button[aria-label="Expand sidebar"],
+    button[aria-label="Collapse sidebar"],
+    .stSidebarCollapseButton {
+        background-color: #1e293b !important;   /* Solid high contrast background */
+        border: 2px solid #38bdf8 !important;   /* Glowing cyan continuous border */
+        border-radius: 8px !important;          /* Clean smooth edge profile */
+        padding: 5px !important;
+        opacity: 1 !important;                  /* Neutralizes auto-hiding behavior completely */
         visibility: visible !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         
-        /* CONSTANT HIGH-INTENSITY CYAN NEON GLOW */
-        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.95) !important;
-        -webkit-box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.95) !important;
-    }
-    
-    /* 2. Target the expanded button (<<) inside the sidebar panel */
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"],
-    section[data-testid="stSidebar"] button:first-child {
-        background-color: #1e293b !important;
-        border: 2px solid #38bdf8 !important;
-        border-radius: 8px !important;
-        padding: 6px !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        
-        /* CONSTANT MATCHING GLOW */
-        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.95) !important;
+        /* SOLID PERMANENT GLOW (Bypasses hover constraints) */
+        box-shadow: 0px 0px 14px rgba(56, 189, 248, 0.95) !important;
     }
 
-    /* 3. Force color glow on the icon vectors inside these two specific positions */
-    div[data-testid="stHeader"] > header button:first-child svg,
-    div[class*="stHeader"] button:first-child svg,
-    section[data-testid="stSidebar"] button svg {
-        fill: #38bdf8 !important;               /* Cyan vector color */
-        color: #38bdf8 !important;              /* Outline fallback */
-        transform: scale(1.25) !important;      /* Icon size magnification */
+    /* 2. Target specific arrow vectors to guarantee high vector visibility */
+    [data-testid="stSidebarCollapseButton"] svg,
+    button[aria-label="Expand sidebar"] svg,
+    button[aria-label="Collapse sidebar"] svg {
+        fill: #38bdf8 !important;               /* Custom vector fill color */
+        color: #38bdf8 !important;              /* Consistent border path fill */
+        transform: scale(1.2) !important;       /* Clean dimension boost */
     }
 
-    /* Hover state micro-interaction */
-    div[data-testid="stHeader"] > header button:first-child:hover,
-    section[data-testid="stSidebar"] button:hover {
-        background-color: #0f172a !important;
-        box-shadow: 0px 0px 22px #38bdf8 !important; /* Hyper boost glow on hover/touch */
+    /* 3. Defensive styling: Ensure Fork/GitHub headers stay intact by blocking generic overrides */
+    header div[class*="stAppDeployButton"] button, 
+    header a[href*="github"] {
+        box-shadow: none !important;
+        border: none !important;
+        background-color: transparent !important;
     }
     </style>
     """,
