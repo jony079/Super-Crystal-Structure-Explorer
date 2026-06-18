@@ -53,53 +53,57 @@ st.markdown("""
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# EXACT ARROW TARGETING: Only << and >> will permanently glow
+# THE FINAL ULTIMATE GLOW INJECTION: Targets by exact structural position
 st.markdown(
     """
     <style>
-    /* 1. Target exact COLLAPSED button (>>) via its unique action attribute */
-    button[aria-label="Expand sidebar"],
-    [data-testid="stSidebarCollapseButton"] {
-        background-color: #1e293b !important;   /* Dark contrast background */
-        border: 2px solid #38bdf8 !important;   /* Neon cyan border outline */
+    /* 1. Target the absolute first button in the top header section (Always the >> button) */
+    div[data-testid="stHeader"] > header button:first-child,
+    div[class*="stHeader"] button:first-child,
+    button[data-testid="stSidebarCollapseButton"] {
+        background-color: #1e293b !important;   /* Solid dark background contrast */
+        border: 2px solid #38bdf8 !important;   /* Permanent bright neon border */
         border-radius: 8px !important;          /* Sharp curved border */
-        padding: 5px !important;
-        opacity: 1 !important;                  /* Stop system from fading it out */
+        padding: 6px !important;
+        opacity: 1 !important;                  /* Prevents Streamlit from auto-fading */
         visibility: visible !important;
         display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         
-        /* CONSTANT NEON GLOW */
-        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.9) !important;
+        /* CONSTANT HIGH-INTENSITY CYAN NEON GLOW */
+        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.95) !important;
+        -webkit-box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.95) !important;
     }
     
-    /* 2. Target exact EXPANDED button (<<) inside the panel frame */
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] {
+    /* 2. Target the expanded button (<<) inside the sidebar panel */
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"],
+    section[data-testid="stSidebar"] button:first-child {
         background-color: #1e293b !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
-        padding: 5px !important;
+        padding: 6px !important;
         opacity: 1 !important;
         visibility: visible !important;
         
-        /* CONSTANT NEON GLOW */
-        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.9) !important;
+        /* CONSTANT MATCHING GLOW */
+        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.95) !important;
     }
 
-    /* 3. Apply color change ONLY to the selected arrow vectors */
-    button[aria-label="Expand sidebar"] svg,
-    [data-testid="stSidebarCollapseButton"] svg,
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] svg {
+    /* 3. Force color glow on the icon vectors inside these two specific positions */
+    div[data-testid="stHeader"] > header button:first-child svg,
+    div[class*="stHeader"] button:first-child svg,
+    section[data-testid="stSidebar"] button svg {
         fill: #38bdf8 !important;               /* Cyan vector color */
-        color: #38bdf8 !important;              /* Outline vector fallback */
-        transform: scale(1.2) !important;       /* Icon size boost */
+        color: #38bdf8 !important;              /* Outline fallback */
+        transform: scale(1.25) !important;      /* Icon size magnification */
     }
 
-    /* Interactive response logic for touch or click */
-    button[aria-label="Expand sidebar"]:hover,
-    [data-testid="stSidebarCollapseButton"]:hover,
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"]:hover {
+    /* Hover state micro-interaction */
+    div[data-testid="stHeader"] > header button:first-child:hover,
+    section[data-testid="stSidebar"] button:hover {
         background-color: #0f172a !important;
-        box-shadow: 0px 0px 22px #38bdf8 !important; /* Extra hyper-glow on click/hover */
+        box-shadow: 0px 0px 22px #38bdf8 !important; /* Hyper boost glow on hover/touch */
     }
     </style>
     """,
