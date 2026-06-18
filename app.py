@@ -147,7 +147,7 @@ else:
     cn = coordination_number(ctype)
     cpd = close_packed_direction(ctype)
     n_atoms = atoms_per_unit_cell(ctype)
-    F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)=======================================
+    F_sq, F_rel, F_rule, n_basis = structure_factor(ctype, h, k, l)
 # STEP 2: MAIN DASHBOARD HEADER & KPI CARDS
 # ==========================================
 st.markdown('# <span style="color:#58a6ff">■</span> Crystal Structure Explorer', unsafe_allow_html=True)
