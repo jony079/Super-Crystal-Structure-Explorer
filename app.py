@@ -53,13 +53,14 @@ st.markdown("""
 # STEP 1: SIDEBAR USER INTERFACE
 # ==========================================
 
-# CRITICAL NEON STYLE INJECTION: Absolute global selector to force-glow the arrow containers
+# BULLETPROOF NEON STYLE INJECTION: Direct element selector bypass mechanism
 st.markdown(
     """
     <style>
-    /* 1. Targetting the collapsed main chevron container (>>) globally at root level */
-    button[data-testid="stSidebarCollapseButton"],
-    [class*="stSidebarCollapseButton"],
+    /* 1. Target ALL top navbar buttons (including collapsed >> arrow button) */
+    header button, 
+    [data-testid="stSidebarCollapseButton"],
+    .stSidebarCollapseButton,
     div[class*="Header"] button {
         background-color: #1e293b !important;   /* Solid dark background contrast */
         border: 2px solid #38bdf8 !important;   /* Permanent bright neon border layout */
@@ -68,17 +69,14 @@ st.markdown(
         opacity: 1 !important;                  /* Bypass system auto-fade tracking */
         visibility: visible !important;
         display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
         
         /* HEAVY PERMANENT NEON GLOW EFFECTS */
         box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
-        -webkit-box-shadow: 0px 0px 18px rgba(56, 189, 248, 0.95) !important;
     }
     
-    /* 2. Targetting the expanded sidebar controller layout (<<) inside the panel frame */
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"],
-    section[data-testid="stSidebar"] [class*="CollapseButton"] {
+    /* 2. Target the expanded sidebar controller layout (<<) inside the panel frame */
+    section[data-testid="stSidebar"] button,
+    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] {
         background-color: #1e293b !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
@@ -91,17 +89,17 @@ st.markdown(
     }
 
     /* 3. Global SVG target tracking to paint the raw chevron paths cyan */
-    button[data-testid="stSidebarCollapseButton"] svg,
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"] svg,
-    div[class*="Header"] button svg {
+    header button svg,
+    [data-testid="stSidebarCollapseButton"] svg,
+    section[data-testid="stSidebar"] button svg {
         fill: #38bdf8 !important;               /* Cyan fill vector color */
         color: #38bdf8 !important;              /* Neon stroke fallback vector */
         transform: scale(1.3) !important;       /* Vector scale magnification */
     }
 
     /* Hover boost configuration */
-    button[data-testid="stSidebarCollapseButton"]:hover,
-    section[data-testid="stSidebar"] button[aria-label="Collapse sidebar"]:hover {
+    header button:hover,
+    section[data-testid="stSidebar"] button:hover {
         background-color: #0f172a !important;
         box-shadow: 0px 0px 25px #38bdf8 !important; /* Hyper boost glow matrix on mouse hover */
     }
